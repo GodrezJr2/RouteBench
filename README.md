@@ -50,6 +50,7 @@ npm run bench -- --output results/results.json --report results/report.md --rout
 
 ```powershell
 npm run demo                                # offline sample benchmark + report
+npm run view                                # local result viewer at http://localhost:3001
 npm test                                    # run test suite
 npm run lint                                # syntax check
 ```
@@ -64,6 +65,12 @@ Full benchmark with report and routing export:
 
 ```powershell
 npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
+```
+
+Open the local result viewer (serves `results/` on localhost:3001):
+
+```powershell
+npm run view
 ```
 
 Compare two benchmark runs (regression/improvement diff):

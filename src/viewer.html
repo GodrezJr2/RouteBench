@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RouteBench Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    header {
+      background: #1e293b; border-bottom: 1px solid #334155;
+      padding: 10px 20px; display: flex; align-items: center;
+      gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 10;
+    }
+    .logo { font-size: 16px; font-weight: 700; color: #60a5fa; white-space: nowrap; }
+    .logo em { color: #475569; font-style: normal; font-size: 12px; font-weight: 400; }
+    .pickers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
+    .pick-group { display: flex; align-items: center; gap: 4px; }
+    .pick-label { font-size: 11px; color: #64748b; white-space: nowrap; }
+    select {
+      background: #0f172a; color: #cbd5e1; border: 1px solid #334155;
+      border-radius: 5px; padding: 4px 8px; font-size: 12px; max-width: 220px;
+    }
+    .btn {
+      background: #3b82f6; color: white; border: none; border-radius: 5px;
+      padding: 5px 16px; font-size: 13px; cursor: pointer; font-weight: 500;
+    }
+    .btn:hover { background: #2563eb; }
+
+    main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+
+    .section { margin-bottom: 20px; }
+    h2 {
+      font-size: 11px; font-weight: 600; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
+    }
+
+    .rec-box {
+      background: #1e293b; border: 1px solid #334155;
+      border-left: 4px solid #3b82f6; border-radius: 8px; padding: 14px 18px;
+    }
+    .rec-primary { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+    .rec-fallback { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    .rec-reason { font-size: 12px; color: #64748b; line-height: 1.5; }
+
+    .cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .card {
+      background: #1e293b; border: 1px solid #334155;
+      border-radius: 8px; padding: 14px 16px; flex: 1; min-width: 130px;
+    }
+    .card-label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
+    .card-value { font-size: 26px; font-weight: 700; line-height: 1; }
+    .card-sub { font-size: 11px; color: #475569; margin-top: 4px; }
+
+    .tbl-wrap { overflow-x: auto; }
+    table {
+      width: 100%; border-collapse: collapse; background: #1e293b;
+      border-radius: 8px; overflow: hidden; font-size: 13px;
+    }
+    th {
+      background: #162032; font-size: 10px; font-weight: 600; color: #475569;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      padding: 9px 12px; text-align: left; white-space: nowrap;
+    }
+    td { padding: 9px 12px; border-top: 1px solid #0f172a; vertical-align: top; }
+    tr:hover td { background: #162032; }
+
+    .g { color: #4ade80; }
+    .a { color: #fbbf24; }
+    .r { color: #f87171; }
+    .b { color: #60a5fa; }
+    .m { color: #c084fc; }
+
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .bg { background: #14532d; color: #4ade80; }
+    .ba { background: #451a03; color: #fbbf24; }
+    .br { background: #450a0a; color: #f87171; }
+    .bb { background: #1e3a5f; color: #93c5fd; }
+
+    pre {
+      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
+      padding: 14px; font-size: 12px; line-height: 1.6; overflow-x: auto;
+      color: #a5f3fc; white-space: pre;
+    }
+
+    details { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
+    summary {
+      cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600;
+      color: #cbd5e1; user-select: none; list-style: none;
+      display: flex; align-items: center; gap: 8px;
+    }
+    summary::before { content: '▶'; font-size: 10px; color: #475569; }
+    details[open] summary::before { content: '▼'; }
+    .details-body { padding: 0 0 4px; }
+
+    .empty { color: #475569; font-size: 13px; padding: 16px; }
+    #loading { padding: 40px 0; text-align: center; color: #475569; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">RouteBench <em>Viewer</em></div>
+    <div class="pickers">
+      <div class="pick-group">
+        <span class="pick-label">Result</span>
+        <select id="sel-result"></select>
+      </div>
+      <div class="pick-group">
+        <span class="pick-label">Routing</span>
+        <select id="sel-routing"></select>
+      </div>
+      <div class="pick-group">
+        <span class="pick-label">Compare</span>
+        <select id="sel-compare"></select>
+      </div>
+      <button class="btn" id="btn-load">Load</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="loading">Loading file list&#x2026;</div>
+    <div id="content" style="display:none">
+      <div id="sec-rec" class="section"></div>
+      <div id="sec-models" class="section"></div>
+      <div id="sec-cats" class="section"></div>
+      <div id="sec-failed" class="section"></div>
+      <div id="sec-routing" class="section"></div>
+      <div id="sec-compare" class="section"></div>
+    </div>
+  </main>
+
+  <script>
+    // Element creation helper — safe DOM only, no innerHTML
+    function h(tag, opts) {
+      var elem = document.createElement(tag);
+      var children = Array.prototype.slice.call(arguments, 2);
+      if (opts) {
+        if (opts.class) elem.className = opts.class;
+        if (opts.style) elem.style.cssText = opts.style;
+        if (opts.open) elem.open = true;
+        if (opts.title) elem.title = opts.title;
+      }
+      for (var i = 0; i < children.length; i++) {
+        var c = children[i];
+        if (c == null) continue;
+        if (Array.isArray(c)) { for (var j = 0; j < c.length; j++) { if (c[j] != null) appendTo(elem, c[j]); } }
+        else appendTo(elem, c);
+      }
+      return elem;
+    }
+    function appendTo(parent, child) {
+      if (child instanceof Node) parent.appendChild(child);
+      else parent.appendChild(document.createTextNode(String(child)));
+    }
+    function txt(s) { return document.createTextNode(String(s ?? '')); }
+    function mount(id, children) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.replaceChildren.apply(el, [].concat(children).filter(Boolean));
+    }
+    function span(cls, text) { return h('span', { class: cls }, text); }
+    function badge(cls, text) { return h('span', { class: 'badge ' + cls }, text); }
+    function th(text) { return h('th', null, text); }
+    function td(content, style) { return h('td', style ? { style: style } : null, content); }
+
+    function pct(r) { return Math.round((r ?? 0) * 100) + '%'; }
+    function ms(v) { return (v ?? 0) + 'ms'; }
+    function scoreColor(n) { return n >= 85 ? 'g' : n >= 70 ? 'a' : 'r'; }
+    function errColor(r) { return r === 0 ? 'g' : r <= 0.1 ? 'a' : 'r'; }
+    function statusBadge(s) { return s === 'completed' ? 'bg' : s === 'provider_error' ? 'br' : 'ba'; }
+
+    function makeFallbackList(models) {
+      if (!models || models.length === 0) return [txt('—')];
+      var parts = [];
+      for (var i = 0; i < models.length; i++) {
+        if (i > 0) parts.push(txt(' → '));
+        parts.push(span('b', models[i]));
+      }
+      return parts;
+    }
+
+    function makeCard(label, value, sub, colorCls) {
+      return h('div', { class: 'card' },
+        h('div', { class: 'card-label' }, label),
+        h('div', { class: 'card-value ' + (colorCls || '') }, String(value ?? '')),
+        h('div', { class: 'card-sub' }, sub)
+      );
+    }
+
+    function makeTable(headers, bodyRows) {
+      var thead = h('thead', null, h('tr', null, headers.map(function(hdr) { return th(hdr); })));
+      var tbody = h('tbody', null, bodyRows);
+      return h('div', { class: 'tbl-wrap' }, h('table', null, thead, tbody));
+    }
+
+    function categoryBreakdown(results) {
+      var groups = new Map();
+      for (var i = 0; i < results.length; i++) {
+        var r = results[i];
+        var key = r.model + '|||' + (r.category || 'uncategorized');
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(r);
+      }
+      var out = [];
+      groups.forEach(function(rows, key) {
+        var parts = key.split('|||');
+        var avg = Math.round(rows.reduce(function(s, r) { return s + (r.score || 0); }, 0) / rows.length);
+        var failures = rows.filter(function(r) { return r.status !== 'completed'; }).length;
+        out.push({ model: parts[0], category: parts[1], avg: avg, failures: failures, count: rows.length });
+      });
+      return out;
+    }
+
+    function populateSel(id, files, optional, hintWord) {
+      var sel = document.getElementById(id);
+      sel.replaceChildren();
+      if (optional) {
+        var none = document.createElement('option');
+        none.value = '';
+        none.textContent = '— none —';
+        sel.appendChild(none);
+      }
+      var sorted = files.slice().sort();
+      for (var i = 0; i < sorted.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = sorted[i];
+        opt.textContent = sorted[i].replace(/^results[/\\]/, '');
+        sel.appendChild(opt);
+      }
+      if (!optional && sorted.length > 0) {
+        var real = sorted.find(function(f) { return !f.includes('demo') && !f.includes('sample'); });
+        sel.value = real || sorted[sorted.length - 1];
+      }
+      if (optional && hintWord && sorted.length > 0) {
+        var match = sorted.find(function(f) { return f.includes(hintWord); });
+        if (match) sel.value = match;
+      }
+    }
+
+    async function fetchJSON(url) {
+      var r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status + ': ' + url);
+      return r.json();
+    }
+
+    async function init() {
+      var loadDiv = document.getElementById('loading');
+      try {
+        var data = await fetchJSON('/api/files');
+        var files = data.files;
+        function base(f) { return f.split('/').pop().split('\\').pop(); }
+        var resultFiles = files.filter(function(f) {
+          var n = base(f);
+          return !n.startsWith('routing') && !n.includes('compare') &&
+            !n.includes('generic') && !n.includes('litellm') && !n.includes('models');
+        });
+        var routingFiles = files.filter(function(f) {
+          var n = base(f);
+          return (n.startsWith('routing') || n.includes('routing')) &&
+            !n.includes('generic') && !n.includes('compare');
+        });
+        var compareFiles = files.filter(function(f) { return base(f).includes('compare'); });
+
+        populateSel('sel-result', resultFiles, false, null);
+        populateSel('sel-routing', routingFiles, true, 'routing');
+        populateSel('sel-compare', compareFiles, true, 'compare');
+
+        loadDiv.textContent = '';
+        if (resultFiles.length > 0) {
+          await load();
+        } else {
+          loadDiv.replaceChildren(
+            h('p', { class: 'empty' }, 'No result files in results/. Run npm run bench or npm run demo first.')
+          );
+        }
+      } catch (e) {
+        loadDiv.replaceChildren(h('p', { class: 'empty' }, 'Error loading file list: ' + e.message));
+      }
+    }
+
+    async function load() {
+      var resultPath = document.getElementById('sel-result').value;
+      var routingPath = document.getElementById('sel-routing').value;
+      var comparePath = document.getElementById('sel-compare').value;
+      var loadDiv = document.getElementById('loading');
+      var content = document.getElementById('content');
+      loadDiv.textContent = 'Loading…';
+      content.style.display = 'none';
+      try {
+        var results = await Promise.all([
+          resultPath ? fetchJSON('/api/file?path=' + encodeURIComponent(resultPath)) : Promise.resolve(null),
+          routingPath ? fetchJSON('/api/file?path=' + encodeURIComponent(routingPath)) : Promise.resolve(null),
+          comparePath ? fetchJSON('/api/file?path=' + encodeURIComponent(comparePath)) : Promise.resolve(null),
+        ]);
+        var resultData = results[0], routingData = results[1], compareData = results[2];
+        if (resultData) renderResult(resultData);
+        else ['sec-rec', 'sec-models', 'sec-cats', 'sec-failed'].forEach(function(id) { document.getElementById(id).replaceChildren(); });
+        if (routingData) renderRouting(routingData);
+        else document.getElementById('sec-routing').replaceChildren();
+        if (compareData) renderCompare(compareData);
+        else document.getElementById('sec-compare').replaceChildren();
+        loadDiv.textContent = '';
+        content.style.display = 'block';
+      } catch (e) {
+        loadDiv.replaceChildren(h('p', { class: 'empty' }, 'Load failed: ' + e.message));
+      }
+    }
+
+    function renderResult(data) {
+      var rec = data.recommendation || {};
+      var ranked = rec.ranked_models || [];
+      var primary = ranked.find(function(m) { return m.model === rec.primary_model; });
+
+      var recBox = h('div', { class: 'rec-box' },
+        h('div', { class: 'rec-primary' }, 'Primary: ', span('b', rec.primary_model || '—')),
+        h('div', { class: 'rec-fallback' }, 'Fallback: ', makeFallbackList(rec.fallback_models)),
+        h('div', { class: 'rec-reason' }, rec.reason || '')
+      );
+
+      var cards = [];
+      if (primary) {
+        cards = [
+          makeCard('Route Score', primary.recommendation_score, 'primary model', scoreColor(primary.recommendation_score)),
+          makeCard('Overall Score', primary.overall_score, 'benchmark quality', scoreColor(primary.overall_score)),
+          makeCard('Avg Latency', ms(primary.avg_latency_ms), 'per request', 'b'),
+          makeCard('Error Rate', pct(primary.error_rate), 'failed requests', errColor(primary.error_rate)),
+        ];
+        if (primary.total_estimated_cost_usd != null) {
+          cards.push(makeCard('Total Cost', '$' + primary.total_estimated_cost_usd, 'all test cases', 'm'));
+        }
+      }
+      mount('sec-rec', [recBox, cards.length > 0 ? h('div', { class: 'cards', style: 'margin-top:12px' }, cards) : null]);
+
+      var hasCost = ranked.some(function(m) { return m.total_estimated_cost_usd != null; });
+      var headers = ['#', 'Model', 'Route Score', 'Overall', 'Avg Latency', 'Error Rate', 'Cases'];
+      if (hasCost) headers.push('Cost');
+      var modelRows = ranked.map(function(m, i) {
+        var cells = [
+          td(String(i + 1), 'color:#475569'),
+          td(h('strong', null, m.model)),
+          td(span(scoreColor(m.recommendation_score), String(m.recommendation_score))),
+          td(span(scoreColor(m.overall_score), String(m.overall_score))),
+          td(ms(m.avg_latency_ms)),
+          td(span(errColor(m.error_rate), pct(m.error_rate))),
+          td(String(m.test_count != null ? m.test_count : '—'), 'color:#475569'),
+        ];
+        if (hasCost) cells.push(td(m.total_estimated_cost_usd != null ? '$' + m.total_estimated_cost_usd : '—'));
+        return h('tr', null, cells);
+      });
+      mount('sec-models', [h('h2', null, 'Ranked Models'), makeTable(headers, modelRows)]);
+
+      var cats = categoryBreakdown(data.results || []);
+      var catRows = cats.map(function(row) {
+        return h('tr', null,
+          td(row.model),
+          td(badge('bb', row.category)),
+          td(span(scoreColor(row.avg), String(row.avg))),
+          td(row.failures > 0 ? span('r', String(row.failures)) : span('g', '0')),
+          td(String(row.count), 'color:#475569')
+        );
+      });
+      mount('sec-cats', [h('h2', null, 'Category Breakdown'), makeTable(['Model', 'Category', 'Avg Score', 'Failures', 'Cases'], catRows)]);
+
+      var failed = (data.results || []).filter(function(r) { return r.status !== 'completed' || r.passed === false; });
+      var failedSummary = h('summary', null, 'Failed Cases (' + failed.length + ')');
+      var failedBody;
+      if (failed.length === 0) {
+        failedBody = h('div', { class: 'details-body' }, h('p', { class: 'empty' }, 'All cases passed.'));
+      } else {
+        var fRows = failed.map(function(r) {
+          var msg = String(r.error_message || r.score_reason || '').slice(0, 120);
+          return h('tr', null,
+            td(r.model),
+            td(r.test_case_id, 'font-family:monospace;font-size:11px'),
+            td(r.category || ''),
+            td(badge(statusBadge(r.status), r.status)),
+            td(String(r.score || 0)),
+            td(ms(r.latency_ms)),
+            td(msg, 'font-size:11px;color:#94a3b8;max-width:280px')
+          );
+        });
+        failedBody = h('div', { class: 'details-body' },
+          makeTable(['Model', 'Case', 'Category', 'Status', 'Score', 'Latency', 'Message'], fRows)
+        );
+      }
+      mount('sec-failed', [h('details', failed.length > 0 ? { open: true } : null, failedSummary, failedBody)]);
+    }
+
+    function renderRouting(routing) {
+      var rules = routing.routing_rules || [];
+      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-left-color:#22c55e' },
+        h('div', { class: 'rec-primary' }, 'Primary: ', span('b', routing.primary_model || '—')),
+        h('div', { class: 'rec-fallback' }, 'Fallback: ', makeFallbackList(routing.fallback_models)),
+        h('div', { class: 'rec-reason' }, 'Endpoint: ' + (routing.endpoint || '—') + ' · Schema: ' + (routing.schema_version || '—'))
+      );
+      var ruleRows = rules.map(function(r) {
+        return h('tr', null,
+          td(String(r.priority), 'color:#475569'),
+          td(h('strong', null, r.model)),
+          td(span(scoreColor(r.route_score), String(r.route_score))),
+          td(span(scoreColor(r.overall_score), String(r.overall_score))),
+          td(ms(r.avg_latency_ms)),
+          td(span(errColor(r.error_rate), pct(r.error_rate))),
+          td(r.reason || '', 'font-size:11px;color:#94a3b8')
+        );
+      });
+      var pre = h('pre', null);
+      pre.textContent = JSON.stringify(routing, null, 2);
+      var rawSection = h('details', null,
+        h('summary', null, 'Raw JSON'),
+        h('div', { class: 'details-body' }, pre)
+      );
+      mount('sec-routing', [
+        h('h2', null, 'Routing Export'),
+        recBox,
+        makeTable(['Priority', 'Model', 'Route Score', 'Overall', 'Latency', 'Error Rate', 'Reason'], ruleRows),
+        h('div', { style: 'margin-top:12px' }, rawSection)
+      ]);
+    }
+
+    function renderCompare(compare) {
+      var rc = compare.recommendation_change || {};
+      var s = compare.summary || {};
+      var mcs = compare.model_comparisons || [];
+
+      var summaryCards = h('div', { class: 'cards' },
+        makeCard('Regressions', s.total_regressions || 0, 'score decreased', (s.total_regressions || 0) > 0 ? 'r' : 'g'),
+        makeCard('Improvements', s.total_improvements || 0, 'score increased', (s.total_improvements || 0) > 0 ? 'g' : ''),
+        makeCard('New Failures', s.new_failure_count || 0, 'newly broken', (s.new_failure_count || 0) > 0 ? 'r' : 'g'),
+        makeCard('Recovered', s.recovered_count || 0, 'fixed cases', (s.recovered_count || 0) > 0 ? 'g' : '')
+      );
+
+      var recBorderColor = rc.primary_changed ? '#ef4444' : '#22c55e';
+      var primaryLine = rc.primary_changed
+        ? h('div', { class: 'rec-primary r' }, 'Primary changed: ', span('r', rc.baseline_primary || ''), ' → ', span('g', rc.candidate_primary || ''))
+        : h('div', { class: 'rec-primary g' }, 'Primary unchanged: ', span('b', rc.baseline_primary || ''));
+      var fallbackLine = rc.fallback_changed
+        ? h('div', { class: 'rec-fallback r' }, 'Fallback chain changed')
+        : h('div', { class: 'rec-fallback' }, 'Fallback chain unchanged');
+      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-left-color:' + recBorderColor }, primaryLine, fallbackLine);
+
+      var mcRows = mcs.map(function(mc) {
+        var modelCell = h('td', null, h('strong', null, mc.model));
+        if (!mc.in_baseline) modelCell.appendChild(txt(' ')), modelCell.appendChild(badge('bg', 'new'));
+        else if (!mc.in_candidate) modelCell.appendChild(txt(' ')), modelCell.appendChild(badge('ba', 'removed'));
+
+        function deltaTd(val, suffix, posGood) {
+          if (val == null) return td('—');
+          var rounded = Math.round(val);
+          var sign = rounded > 0 ? '+' : '';
+          var cls = rounded > 0 ? (posGood ? 'g' : 'r') : rounded < 0 ? (posGood ? 'r' : 'g') : '';
+          return td(span(cls, sign + rounded + (suffix || '')));
+        }
+
+        return h('tr', null,
+          modelCell,
+          td(mc.baseline ? String(mc.baseline.overall_score) : '—', 'color:#475569'),
+          td(mc.candidate ? String(mc.candidate.overall_score) : '—', 'color:#475569'),
+          deltaTd(mc.score_delta, '', true),
+          deltaTd(mc.latency_delta_ms, 'ms', false),
+          deltaTd(mc.error_rate_delta != null ? mc.error_rate_delta * 100 : null, '%', false)
+        );
+      });
+      var mcTable = makeTable(['Model', 'Baseline', 'Candidate', 'Score Δ', 'Latency Δ', 'Error Δ'], mcRows);
+
+      var caseRows = [];
+      mcs.forEach(function(mc) {
+        (mc.new_failures || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'NEW FAILURE', cls: 'br' }); });
+        (mc.recovered || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'RECOVERED', cls: 'bg' }); });
+        (mc.status_changes || []).forEach(function(sc) { caseRows.push({ model: mc.model, id: sc.case_id, type: sc.baseline_status + ' → ' + sc.candidate_status, cls: 'ba' }); });
+      });
+
+      var parts = [
+        h('h2', null, 'Compare Run'),
+        summaryCards,
+        recBox,
+        h('h2', null, 'Model Changes'),
+        mcTable,
+      ];
+
+      if (caseRows.length > 0) {
+        var cRows = caseRows.map(function(row) {
+          return h('tr', null,
+            td(row.model),
+            td(row.id, 'font-family:monospace;font-size:11px'),
+            td(badge(row.cls, row.type))
+          );
+        });
+        parts.push(
+          h('h2', { style: 'margin-top:12px' }, 'Case Status Changes'),
+          makeTable(['Model', 'Case', 'Change'], cRows)
+        );
+      }
+
+      mount('sec-compare', parts);
+    }
+
+    document.getElementById('btn-load').addEventListener('click', load);
+    init();
+  </script>
+</body>
+</html>
