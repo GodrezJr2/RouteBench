@@ -1,0 +1,34 @@
+{
+  "name": "routebench",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "RouteBench Phase 0 local-first LLM router benchmark proof-of-concept.",
+  "bin": {
+    "routebench": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:unit": "node --test test/*.test.js",
+    "models": "node src/cli.js models",
+    "bench": "node src/cli.js run",
+    "bench:sample": "node src/cli.js sample",
+    "report": "node src/cli.js report",
+    "promptfoo:config": "node src/cli.js promptfoo-config",
+    "lint": "node scripts/check-syntax.js"
+  },
+  "keywords": [
+    "llm",
+    "benchmark",
+    "router",
+    "promptfoo"
+  ],
+  "license": "MIT",
+  "devDependencies": {},
+  "optionalDependencies": {
+    "promptfoo": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
