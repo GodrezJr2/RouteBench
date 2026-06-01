@@ -66,6 +66,15 @@ Full benchmark with report and routing export:
 npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
 ```
 
+Convert routing export to LiteLLM or generic router config:
+
+```powershell
+npm run routing:export -- --input results/routing.json --format litellm --output results/litellm-config.yaml
+npm run routing:export -- --input results/routing.json --format generic --output results/generic-config.json
+```
+
+See `docs/routing-adapters.md` for field mapping details and 9router / LiteLLM usage notes.
+
 Generate report from existing result JSON:
 
 ```powershell

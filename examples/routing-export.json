@@ -1,0 +1,29 @@
+{
+  "schema_version": "routebench.routing.v1",
+  "generated_at": "2026-06-01T16:10:57.889Z",
+  "endpoint": "https://your-router.example.com/v1",
+  "primary_model": "ComboOP",
+  "fallback_models": [
+    "gh/gpt-4o-mini"
+  ],
+  "routing_rules": [
+    {
+      "priority": 1,
+      "model": "ComboOP",
+      "route_score": 79,
+      "overall_score": 80,
+      "avg_latency_ms": 7798,
+      "error_rate": 0,
+      "reason": "Usable quality score (80). Moderate average latency (7798ms). No failed requests."
+    },
+    {
+      "priority": 2,
+      "model": "gh/gpt-4o-mini",
+      "route_score": 76,
+      "overall_score": 72,
+      "avg_latency_ms": 1172,
+      "error_rate": 0.1667,
+      "reason": "Usable quality score (72). Fast average latency (1172ms). High error rate (17%)."
+    }
+  ]
+}

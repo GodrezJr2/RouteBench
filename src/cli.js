@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {
   discoverModels,
+  exportRoutingAdapter,
   formatModelsList,
   parseArgs,
   runLiveBenchmark,
@@ -18,6 +19,7 @@ Commands:
   node src/cli.js sample [--output results/sample-results.json]
   node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md] [--route-output results/routing.json]
   node src/cli.js report [--input results/model-results.json] [--output results/model-report.md]
+  node src/cli.js routing-export --input results/routing.json --format litellm|generic --output results/litellm-config.yaml
   node src/cli.js promptfoo-config [--benchmark benchmarks/phase0.json] [--output promptfooconfig.yaml]
 
 Config file (auto-loaded from routebench.config.json if present):
@@ -75,6 +77,16 @@ async function main() {
     const outputPath = flags.output || 'results/model-report.md';
     await writeReportFromFile({ inputPath, outputPath });
     console.log(`Saved ${outputPath}`);
+    return;
+  }
+
+  if (command === 'routing-export') {
+    const inputPath = flags.input || 'results/routing.json';
+    const format = flags.format || 'generic';
+    const defaultOutput = format === 'litellm' ? 'results/litellm-config.yaml' : 'results/generic-config.json';
+    const outputPath = flags.output || defaultOutput;
+    await exportRoutingAdapter({ inputPath, format, outputPath });
+    console.log(`Saved ${outputPath} (format: ${format})`);
     return;
   }
 

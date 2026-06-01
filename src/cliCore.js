@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 
 import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs, validateConfig } from './config.js';
+import { toGenericConfig, toLiteLLMConfig } from './adapters.js';
 import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient } from './openaiClient.js';
 import { createPromptfooConfig } from './promptfoo.js';
@@ -172,6 +173,25 @@ export async function writePromptfooConfig({ benchmarkPath, outputPath, env = pr
   });
   await writeText(outputPath, yaml);
   return yaml;
+}
+
+export async function exportRoutingAdapter({ inputPath, format, outputPath, env = process.env }) {
+  const routeExport = JSON.parse(await readFile(inputPath, 'utf8'));
+  const apiKeyEnv = env.ROUTEBENCH_API_KEY ? 'ROUTEBENCH_API_KEY' : 'OPENAI_API_KEY';
+
+  if (format === 'litellm') {
+    const yaml = toLiteLLMConfig(routeExport, { apiKeyEnv });
+    await writeText(outputPath, yaml);
+    return { format: 'litellm', outputPath };
+  }
+
+  if (format === 'generic') {
+    const config = toGenericConfig(routeExport);
+    await writeJson(outputPath, config);
+    return { format: 'generic', outputPath };
+  }
+
+  throw new Error(`unknown adapter format "${format}". Supported: litellm, generic`);
 }
 
 export function summarizeResult(result) {

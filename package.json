@@ -1,6 +1,6 @@
 {
   "name": "routebench",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
   "description": "Local-first CLI for benchmarking and comparing LLM models behind an OpenAI-compatible router endpoint.",
@@ -15,6 +15,7 @@
     "bench": "node src/cli.js run",
     "bench:sample": "node src/cli.js sample",
     "report": "node src/cli.js report",
+    "routing:export": "node src/cli.js routing-export",
     "promptfoo:config": "node src/cli.js promptfoo-config",
     "lint": "node scripts/check-syntax.js"
   },
