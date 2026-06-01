@@ -1,0 +1,10 @@
+{
+  "base_url": "https://your-router.example.com/v1",
+  "api_key": "sk-...",
+  "models": ["model-a", "model-b"],
+  "timeout_ms": 30000,
+  "model_costs": {
+    "model-a": { "input_per_1k": 0.003, "output_per_1k": 0.015 },
+    "model-b": { "input_per_1k": 0.00015, "output_per_1k": 0.0006 }
+  }
+}

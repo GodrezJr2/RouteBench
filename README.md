@@ -1,104 +1,170 @@
-# RouteBench Phase 0.5
+# RouteBench
 
-Local-first CLI proof-of-concept for comparing models behind an OpenAI-compatible endpoint such as 9router.
+Local-first CLI for benchmarking and comparing models behind an OpenAI-compatible router endpoint.
 
-Phase 0.5 intentionally does **not** include auth, database, SaaS, queue workers, dashboards, or LLM-as-judge scoring.
+**Quickstart (no endpoint needed):**
 
-## What it does
+```powershell
+git clone https://github.com/GodrezJr2/RouteBench
+cd RouteBench
+npm run demo
+```
 
-- Discovers models from `/v1/models`.
-- Runs a 30-case deterministic benchmark pack from `benchmarks/phase0.json`.
-- Calls `/chat/completions` on an OpenAI-compatible endpoint.
-- Scores exact match, JSON field compliance, contains/not-contains, and prompt-injection smoke checks.
-- Saves machine-readable JSON results.
-- Produces ranked models with primary/fallback recommendation and score/latency/error-rate reasons.
-- Generates a human-readable Markdown report with failed-case details.
-- Can export a Promptfoo config so Promptfoo can be used separately when installed.
+Opens `results/demo-report.md` — a full Markdown report comparing two sample models.
+
+---
+
+## Real endpoint
+
+**Step 1** — Copy the example config:
+
+```powershell
+Copy-Item routebench.config.example.json routebench.config.json
+```
+
+**Step 2** — Edit `routebench.config.json`:
+
+```json
+{
+  "base_url": "https://your-router.example.com/v1",
+  "api_key": "sk-...",
+  "models": ["model-a", "model-b"],
+  "timeout_ms": 30000,
+  "model_costs": {
+    "model-a": { "input_per_1k": 0.003, "output_per_1k": 0.015 }
+  }
+}
+```
+
+`routebench.config.json` is gitignored — it will not be committed.
+
+**Step 3** — Run:
+
+```powershell
+npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
+```
+
+---
 
 ## Commands
 
 ```powershell
-npm test
-npm run lint
-npm run bench:sample -- --output results/sample-results.json --report results/sample-report.md
+npm run demo                                # offline sample benchmark + report
+npm test                                    # run test suite
+npm run lint                                # syntax check
 ```
 
-Discover models from a real endpoint:
+Discover models:
 
 ```powershell
-$env:ROUTEBENCH_BASE_URL = "https://your-router.example.com/v1"
-$env:ROUTEBENCH_API_KEY = "sk-..."
 npm run models -- --output results/models.json
 ```
 
-Run benchmark and report against a real endpoint:
+Full benchmark with report and routing export:
 
 ```powershell
-$env:ROUTEBENCH_BASE_URL = "https://your-router.example.com/v1"
-$env:ROUTEBENCH_API_KEY = "sk-..."
-$env:ROUTEBENCH_MODELS = "model-a,model-b"
-$env:ROUTEBENCH_TIMEOUT_MS = "120000"
-npm run bench -- --output results/model-results.json --report results/model-report.md
+npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
 ```
 
-Generate a report from existing result JSON:
+Generate report from existing result JSON:
 
 ```powershell
-npm run report -- --input results/model-results.json --output results/model-report.md
+npm run report -- --input results/results.json --output results/report.md
 ```
 
-`OPENAI_BASE_URL` and `OPENAI_API_KEY` also work as fallbacks.
+Promptfoo config export:
 
-For local 9router with an internal/self-signed HTTPS certificate, Node may need:
+```powershell
+npm run promptfoo:config
+npx promptfoo@latest eval -c promptfooconfig.yaml --output results/promptfoo-results.json
+```
+
+For local endpoints with internal/self-signed HTTPS certs:
 
 ```powershell
 $env:NODE_TLS_REJECT_UNAUTHORIZED = "0"
 ```
 
-Use this only for trusted local validation. Prefer trusting the local certificate when possible.
+Use only for trusted local endpoints. Prefer trusting the cert via OS/Node trust store.
 
-## Promptfoo Config
+---
 
-```powershell
-$env:ROUTEBENCH_BASE_URL = "https://your-router.example.com/v1"
-$env:ROUTEBENCH_API_KEY = "sk-..."
-$env:ROUTEBENCH_MODELS = "model-a,model-b"
-npm run promptfoo:config
-npx promptfoo@latest eval -c promptfooconfig.yaml --output results/promptfoo-results.json
+## Config file
+
+`routebench.config.json` (gitignored, never committed):
+
+| Field | Description |
+|---|---|
+| `base_url` | OpenAI-compatible endpoint, e.g. `https://router.example.com/v1` |
+| `api_key` | API key — also accepted from `ROUTEBENCH_API_KEY` env var |
+| `models` | Array of model IDs to benchmark |
+| `timeout_ms` | Per-request timeout in ms (default: 30000) |
+| `model_costs` | Optional per-model cost config for cost estimation |
+
+Environment variables (`ROUTEBENCH_BASE_URL`, `ROUTEBENCH_API_KEY`, `ROUTEBENCH_MODELS`, `ROUTEBENCH_TIMEOUT_MS`) override config file values. `OPENAI_BASE_URL` and `OPENAI_API_KEY` also work as fallbacks.
+
+---
+
+## Output files
+
+### `results/*.json` — `routebench.phase0.v1`
+
+- `models` — model IDs benchmarked
+- `test_cases` — 30-case benchmark pack with categories
+- `results` — per-case output, score, latency, status (`completed` / `provider_error` / `model_failure` / `scorer_failure`), structured error fields
+- `aggregate` — per-model overall score, avg latency, error rate, total estimated cost
+- `recommendation` — ranked models with score/latency/error-rate reasons
+
+### `results/*.md` — Markdown report
+
+- Primary and fallback recommendation with reasons
+- Ranked model table
+- Category breakdown
+- Failed cases with error type, message, and output snippet
+
+### `results/routing.json` — `routebench.routing.v1`
+
+Clean routing export for ops/router config use — no API key included:
+
+```json
+{
+  "schema_version": "routebench.routing.v1",
+  "primary_model": "model-a",
+  "fallback_models": ["model-b"],
+  "routing_rules": [
+    { "priority": 1, "model": "model-a", "route_score": 80, "reason": "..." }
+  ]
+}
 ```
 
-Promptfoo is consumed through npm/npx; cloning Promptfoo is not required unless changing Promptfoo itself.
+---
 
-## Result shape
+## Architecture
 
-`results/*.json` uses schema version `routebench.phase0.v1` and includes:
+```
+routebench.config.json + env vars
+↓
+/v1/models discovery
+↓
+/v1/chat/completions benchmark (30 deterministic cases)
+↓
+deterministic scorers (exact, JSON, contains, prompt-injection)
+↓
+aggregation + weighted recommendation
+↓
+results/*.json + results/*.md + results/routing.json
+```
 
-- `models` — model IDs benchmarked.
-- `test_cases` — benchmark case metadata, including category.
-- `results` — per-model/per-case raw output, score, latency, status, usage, category, and structured errors.
-- `aggregate` — per-model overall score, average latency, and error rate.
-- `recommendation` — ranked models, primary model, fallback models, and score/latency/error-rate reasons.
+Key files:
 
-## Markdown report
-
-`results/*.md` includes:
-
-- Run summary.
-- Primary and fallback recommendation.
-- Ranked model table.
-- Category breakdown.
-- Failed cases with clear error details.
-- Output snippets for failed or low-scoring cases.
-
-## Files
-
-- `src/cli.js` — command entrypoint.
-- `src/cliCore.js` — CLI orchestration, file writing, report integration.
-- `src/modelsClient.js` — OpenAI-compatible `/models` discovery client.
-- `src/openaiClient.js` — OpenAI-compatible chat completions client.
-- `src/runner.js` — benchmark loop.
-- `src/scoring.js` — deterministic scorers, aggregation, recommendation.
-- `src/report.js` — Markdown report renderer.
-- `src/promptfoo.js` — Promptfoo YAML export.
-- `benchmarks/phase0.json` — 30-case deterministic benchmark pack.
-- `test/*.test.js` — Node test suite.
+- `src/cli.js` — command entrypoint
+- `src/cliCore.js` — orchestration, file writing, redaction safeguards
+- `src/config.js` — config file + env loading, merging
+- `src/modelsClient.js` — `/models` discovery
+- `src/openaiClient.js` — `/chat/completions` client
+- `src/runner.js` — benchmark loop, cost calculation, result classification
+- `src/scoring.js` — scorers, aggregation, recommendation
+- `src/report.js` — Markdown renderer
+- `src/routeExport.js` — routing JSON export + schema validation
+- `src/promptfoo.js` — Promptfoo YAML export
+- `benchmarks/phase0.json` — 30-case benchmark pack

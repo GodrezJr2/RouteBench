@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { renderRouteExport } from '../src/routeExport.js';
+import { renderRouteExport, validateRouteExport } from '../src/routeExport.js';
 
 const sampleResult = {
   finished_at: '2026-06-01T00:00:00.000Z',
@@ -62,4 +62,18 @@ test('routing export includes reason per rule', () => {
   assert.ok(rule.reason.includes('Usable quality score'));
   assert.ok(rule.reason.includes('Fast average latency'));
   assert.ok(rule.reason.includes('No failed requests'));
+});
+
+test('validateRouteExport passes valid export', () => {
+  const exported = renderRouteExport(sampleResult, { baseUrl: 'https://router.example.com/v1' });
+  const { valid, errors } = validateRouteExport(exported);
+  assert.equal(valid, true);
+  assert.equal(errors.length, 0);
+});
+
+test('validateRouteExport catches missing required fields', () => {
+  const { valid, errors } = validateRouteExport({ schema_version: 'wrong', routing_rules: 'not-array' });
+  assert.equal(valid, false);
+  assert.ok(errors.some((e) => e.includes('schema_version')));
+  assert.ok(errors.some((e) => e.includes('routing_rules')));
 });

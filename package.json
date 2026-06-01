@@ -1,15 +1,16 @@
 {
   "name": "routebench",
-  "version": "0.1.0",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
-  "description": "RouteBench Phase 0 local-first LLM router benchmark proof-of-concept.",
+  "description": "Local-first CLI for benchmarking and comparing LLM models behind an OpenAI-compatible router endpoint.",
   "bin": {
     "routebench": "./src/cli.js"
   },
   "scripts": {
     "test": "node --test",
     "test:unit": "node --test test/*.test.js",
+    "demo": "node src/cli.js sample --output results/demo-results.json --report results/demo-report.md",
     "models": "node src/cli.js models",
     "bench": "node src/cli.js run",
     "bench:sample": "node src/cli.js sample",
@@ -17,10 +18,18 @@
     "promptfoo:config": "node src/cli.js promptfoo-config",
     "lint": "node scripts/check-syntax.js"
   },
+  "files": [
+    "src/",
+    "benchmarks/",
+    "scripts/",
+    "routebench.config.example.json",
+    "README.md"
+  ],
   "keywords": [
     "llm",
     "benchmark",
     "router",
+    "openai-compatible",
     "promptfoo"
   ],
   "license": "MIT",

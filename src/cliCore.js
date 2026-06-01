@@ -44,9 +44,20 @@ export async function loadBenchmark(path = 'benchmarks/phase0.json') {
   return JSON.parse(raw);
 }
 
-async function writeJson(path, data) {
+function redactSensitive(text, values) {
+  let result = text;
+  for (const value of values) {
+    if (value && value.length >= 8) {
+      result = result.split(value).join('[REDACTED]');
+    }
+  }
+  return result;
+}
+
+async function writeJson(path, data, { redact = [] } = {}) {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+  const raw = redactSensitive(`${JSON.stringify(data, null, 2)}\n`, redact);
+  await writeFile(path, raw, 'utf8');
 }
 
 async function writeText(path, data) {
@@ -109,8 +120,9 @@ export async function createSampleResult() {
   return runBenchmark({ models: Object.keys(fixtures), cases: benchmark.cases, client });
 }
 
-export async function writeReportFromResult({ result, outputPath }) {
-  const markdown = renderMarkdownReport(result);
+export async function writeReportFromResult({ result, outputPath, redact = [] }) {
+  const raw = renderMarkdownReport(result);
+  const markdown = redactSensitive(raw, redact);
   await writeText(outputPath, markdown);
   return markdown;
 }
@@ -133,8 +145,9 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
   const config = validateConfig(mergeConfigs(fileConf, envConf));
   const client = createOpenAICompatibleClient(config);
   const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client, modelCosts: config.modelCosts });
-  await writeJson(outputPath, result);
-  if (reportPath) await writeReportFromResult({ result, outputPath: reportPath });
+  const redact = [config.apiKey];
+  await writeJson(outputPath, result, { redact });
+  if (reportPath) await writeReportFromResult({ result, outputPath: reportPath, redact });
   if (routeOutputPath) await writeRouteExportFromResult({ result, outputPath: routeOutputPath, baseUrl: config.baseUrl });
   return result;
 }
