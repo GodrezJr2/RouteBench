@@ -4,6 +4,7 @@ import {
   exportRoutingAdapter,
   formatModelsList,
   parseArgs,
+  runCompare,
   runLiveBenchmark,
   runSampleBenchmark,
   summarizeResult,
@@ -19,6 +20,7 @@ Commands:
   node src/cli.js sample [--output results/sample-results.json]
   node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md] [--route-output results/routing.json]
   node src/cli.js report [--input results/model-results.json] [--output results/model-report.md]
+  node src/cli.js compare --baseline results/run1.json --candidate results/run2.json [--output results/compare.json] [--report results/compare.md]
   node src/cli.js routing-export --input results/routing.json --format litellm|generic --output results/litellm-config.yaml
   node src/cli.js promptfoo-config [--benchmark benchmarks/phase0.json] [--output promptfooconfig.yaml]
 
@@ -77,6 +79,33 @@ async function main() {
     const outputPath = flags.output || 'results/model-report.md';
     await writeReportFromFile({ inputPath, outputPath });
     console.log(`Saved ${outputPath}`);
+    return;
+  }
+
+  if (command === 'compare') {
+    const baselinePath = flags.baseline;
+    const candidatePath = flags.candidate;
+    if (!baselinePath || !candidatePath) {
+      console.error('Usage: node src/cli.js compare --baseline <file> --candidate <file> [--output <file>] [--report <file>]');
+      process.exitCode = 1;
+      return;
+    }
+    const outputPath = flags.output;
+    const reportPath = flags.report;
+    const result = await runCompare({ baselinePath, candidatePath, outputPath, reportPath });
+    const rc = result.recommendation_change;
+    console.log('RouteBench Compare');
+    console.log(`Baseline:  ${baselinePath}`);
+    console.log(`Candidate: ${candidatePath}`);
+    if (rc.primary_changed) {
+      console.log(`Primary model CHANGED: ${rc.baseline_primary} → ${rc.candidate_primary}`);
+    } else {
+      console.log(`Primary model unchanged: ${rc.baseline_primary}`);
+    }
+    const s = result.summary;
+    console.log(`${s.total_regressions} regression(s), ${s.total_improvements} improvement(s), ${s.new_failure_count} new failure(s), ${s.recovered_count} recovered`);
+    if (outputPath) console.log(`\nSaved ${outputPath}`);
+    if (reportPath) console.log(`Saved ${reportPath}`);
     return;
   }
 

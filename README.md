@@ -66,6 +66,12 @@ Full benchmark with report and routing export:
 npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
 ```
 
+Compare two benchmark runs (regression/improvement diff):
+
+```powershell
+npm run compare -- --baseline results/run1.json --candidate results/run2.json --output results/compare.json --report results/compare.md
+```
+
 Convert routing export to LiteLLM or generic router config:
 
 ```powershell

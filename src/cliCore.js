@@ -4,6 +4,8 @@ import { mkdir } from 'node:fs/promises';
 
 import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs, validateConfig } from './config.js';
 import { toGenericConfig, toLiteLLMConfig } from './adapters.js';
+import { compareRuns } from './compare.js';
+import { renderCompareReport } from './compareReport.js';
 import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient } from './openaiClient.js';
 import { createPromptfooConfig } from './promptfoo.js';
@@ -192,6 +194,24 @@ export async function exportRoutingAdapter({ inputPath, format, outputPath, env 
   }
 
   throw new Error(`unknown adapter format "${format}". Supported: litellm, generic`);
+}
+
+export async function runCompare({ baselinePath, candidatePath, outputPath, reportPath }) {
+  const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
+  const candidate = JSON.parse(await readFile(candidatePath, 'utf8'));
+  if (baseline.schema_version !== 'routebench.phase0.v1') {
+    throw new Error(`baseline is not routebench.phase0.v1 (got: ${baseline.schema_version})`);
+  }
+  if (candidate.schema_version !== 'routebench.phase0.v1') {
+    throw new Error(`candidate is not routebench.phase0.v1 (got: ${candidate.schema_version})`);
+  }
+  const compareResult = compareRuns(baseline, candidate);
+  if (outputPath) await writeJson(outputPath, compareResult);
+  if (reportPath) {
+    const markdown = renderCompareReport(compareResult, { baselinePath, candidatePath });
+    await writeText(reportPath, markdown);
+  }
+  return compareResult;
 }
 
 export function summarizeResult(result) {
