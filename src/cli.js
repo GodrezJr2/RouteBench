@@ -16,11 +16,15 @@ function help() {
 Commands:
   node src/cli.js models [--output results/models.json]
   node src/cli.js sample [--output results/sample-results.json]
-  node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md]
+  node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md] [--route-output results/routing.json]
   node src/cli.js report [--input results/model-results.json] [--output results/model-report.md]
   node src/cli.js promptfoo-config [--benchmark benchmarks/phase0.json] [--output promptfooconfig.yaml]
 
-Live benchmark env:
+Config file (auto-loaded from routebench.config.json if present):
+  { "base_url": "...", "api_key": "...", "models": ["a","b"], "timeout_ms": 30000,
+    "model_costs": { "model-a": { "input_per_1k": 0.002, "output_per_1k": 0.004 } } }
+
+Live benchmark env (overrides config file):
   ROUTEBENCH_BASE_URL=https://router.example.com/v1
   ROUTEBENCH_API_KEY=sk-...
   ROUTEBENCH_MODELS=model-a,model-b
@@ -57,10 +61,12 @@ async function main() {
   if (command === 'run') {
     const outputPath = flags.output || 'results/model-results.json';
     const reportPath = flags.report;
-    const result = await runLiveBenchmark({ benchmarkPath, outputPath, reportPath });
+    const routeOutputPath = flags['route-output'];
+    const result = await runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath });
     console.log(summarizeResult(result));
     console.log(`\nSaved ${outputPath}`);
     if (reportPath) console.log(`Saved ${reportPath}`);
+    if (routeOutputPath) console.log(`Saved ${routeOutputPath}`);
     return;
   }
 

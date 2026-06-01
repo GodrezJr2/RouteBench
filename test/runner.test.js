@@ -55,7 +55,7 @@ test('records model errors as result rows', async () => {
   const result = await runBenchmark({ models: ['ok-model', 'broken-model'], cases: [cases[0]], client, now: () => 1000 });
   const errorRow = result.results.find((row) => row.model === 'broken-model');
 
-  assert.equal(errorRow.status, 'error');
+  assert.equal(errorRow.status, 'provider_error');
   assert.equal(errorRow.score, 0);
   assert.match(errorRow.error_message, /broken-model/);
   assert.match(errorRow.error_message, /exact_math/);
@@ -75,9 +75,45 @@ test('records structured error details with model and test case context', async 
   const result = await runBenchmark({ models: ['bad-model'], cases: [cases[0]], client, now: () => 1000 });
   const row = result.results[0];
 
+  assert.equal(row.status, 'provider_error');
   assert.equal(row.error_type, 'provider_http_error');
   assert.equal(row.error_status, 422);
   assert.equal(row.error_body_preview, 'bad model');
   assert.match(row.error_message, /bad-model/);
   assert.match(row.error_message, /exact_math/);
+});
+
+test('records model_failure when output is empty', async () => {
+  const client = async () => ({ output: '', usage: { total_tokens: 1 } });
+
+  const result = await runBenchmark({ models: ['empty-model'], cases: [cases[0]], client, now: () => 1000 });
+  const row = result.results[0];
+
+  assert.equal(row.status, 'model_failure');
+  assert.equal(row.error_type, 'empty_output');
+  assert.equal(row.score, 0);
+  assert.equal(result.aggregate.models['empty-model'].error_rate, 1);
+});
+
+test('records scorer_failure when scorer throws', async () => {
+  const badCase = { id: 'bad_scorer', name: 'bad', system: '', prompt: '', scoring: 'unknown_type', expected: {} };
+  const client = async () => ({ output: 'some output', usage: { total_tokens: 3 } });
+
+  const result = await runBenchmark({ models: ['model-x'], cases: [badCase], client, now: () => 1000 });
+  const row = result.results[0];
+
+  assert.equal(row.status, 'scorer_failure');
+  assert.equal(row.score, 0);
+});
+
+test('calculates estimated cost when model_costs provided', async () => {
+  const client = async () => ({ output: '391', usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 } });
+  const modelCosts = { 'cost-model': { input_per_1k: 0.002, output_per_1k: 0.004 } };
+
+  const result = await runBenchmark({ models: ['cost-model'], cases: [cases[0]], client, now: () => 1000, modelCosts });
+  const row = result.results[0];
+
+  assert.ok(row.estimated_cost_usd != null);
+  assert.equal(row.estimated_cost_usd, 0.0004);
+  assert.ok(result.aggregate.models['cost-model'].total_estimated_cost_usd != null);
 });

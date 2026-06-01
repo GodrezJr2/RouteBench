@@ -21,7 +21,7 @@ function categoryBreakdown(results) {
   return [...groups.entries()].map(([key, rows]) => {
     const [model, category] = key.split('|||');
     const avg = Math.round(rows.reduce((sum, row) => sum + Number(row.score ?? 0), 0) / rows.length);
-    const failures = rows.filter((row) => row.status === 'error').length;
+    const failures = rows.filter((row) => row.status !== 'completed').length;
     return { model, category, avg, failures, count: rows.length };
   });
 }
@@ -58,7 +58,7 @@ export function renderMarkdownReport(result) {
   }
   lines.push('');
 
-  const failed = result.results.filter((row) => row.status === 'error' || row.passed === false);
+  const failed = result.results.filter((row) => row.status !== 'completed' || row.passed === false);
   lines.push('## Failed Cases', '');
   if (failed.length === 0) {
     lines.push('No failed cases.', '');

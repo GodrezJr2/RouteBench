@@ -6,7 +6,28 @@ export function loadConfigFromEnv(env = process.env) {
       .split(',')
       .map((model) => model.trim())
       .filter(Boolean),
-    timeoutMs: Number(env.ROUTEBENCH_TIMEOUT_MS || 30000),
+    timeoutMs: Number(env.ROUTEBENCH_TIMEOUT_MS || 0),
+    modelCosts: null,
+  };
+}
+
+export function loadConfigFromFile(json) {
+  return {
+    baseUrl: json.base_url ?? '',
+    apiKey: json.api_key ?? '',
+    models: Array.isArray(json.models) ? json.models.map((m) => String(m).trim()).filter(Boolean) : [],
+    timeoutMs: Number(json.timeout_ms || 0),
+    modelCosts: json.model_costs ?? {},
+  };
+}
+
+export function mergeConfigs(fileConf, envConf) {
+  return {
+    baseUrl: envConf.baseUrl || fileConf.baseUrl,
+    apiKey: envConf.apiKey || fileConf.apiKey,
+    models: envConf.models.length > 0 ? envConf.models : fileConf.models,
+    timeoutMs: envConf.timeoutMs > 0 ? envConf.timeoutMs : fileConf.timeoutMs > 0 ? fileConf.timeoutMs : 30000,
+    modelCosts: envConf.modelCosts ?? fileConf.modelCosts ?? {},
   };
 }
 

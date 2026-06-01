@@ -2,12 +2,24 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 
-import { loadConfigFromEnv, validateConfig } from './config.js';
+import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs, validateConfig } from './config.js';
 import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient } from './openaiClient.js';
 import { createPromptfooConfig } from './promptfoo.js';
 import { renderMarkdownReport } from './report.js';
+import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
+
+const EMPTY_FILE_CONF = { baseUrl: '', apiKey: '', models: [], timeoutMs: 0, modelCosts: {} };
+
+async function tryLoadFileConfig(configPath = 'routebench.config.json') {
+  try {
+    const raw = await readFile(configPath, 'utf8');
+    return loadConfigFromFile(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
 
 export function parseArgs(argv) {
   const [command = 'help', ...rest] = argv;
@@ -52,7 +64,9 @@ export function formatModelsList(discovery) {
 }
 
 export async function discoverModels({ outputPath, env = process.env }) {
-  const config = validateConfig({ ...loadConfigFromEnv(env), models: ['placeholder-a', 'placeholder-b'] });
+  const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
+  const envConf = loadConfigFromEnv(env);
+  const config = validateConfig({ ...mergeConfigs(fileConf, envConf), models: ['placeholder-a', 'placeholder-b'] });
   const client = createModelsClient(config);
   const discovery = await client();
   if (outputPath) await writeJson(outputPath, discovery);
@@ -106,13 +120,22 @@ export async function writeReportFromFile({ inputPath, outputPath }) {
   return writeReportFromResult({ result, outputPath });
 }
 
-export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, env = process.env }) {
+export async function writeRouteExportFromResult({ result, outputPath, baseUrl = '' }) {
+  const json = renderRouteExport(result, { baseUrl });
+  await writeJson(outputPath, json);
+  return json;
+}
+
+export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, env = process.env }) {
   const benchmark = await loadBenchmark(benchmarkPath);
-  const config = validateConfig(loadConfigFromEnv(env));
+  const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
+  const envConf = loadConfigFromEnv(env);
+  const config = validateConfig(mergeConfigs(fileConf, envConf));
   const client = createOpenAICompatibleClient(config);
-  const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client });
+  const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client, modelCosts: config.modelCosts });
   await writeJson(outputPath, result);
   if (reportPath) await writeReportFromResult({ result, outputPath: reportPath });
+  if (routeOutputPath) await writeRouteExportFromResult({ result, outputPath: routeOutputPath, baseUrl: config.baseUrl });
   return result;
 }
 
@@ -125,7 +148,9 @@ export async function runSampleBenchmark({ outputPath, reportPath }) {
 
 export async function writePromptfooConfig({ benchmarkPath, outputPath, env = process.env }) {
   const benchmark = await loadBenchmark(benchmarkPath);
-  const config = validateConfig(loadConfigFromEnv(env));
+  const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
+  const envConf = loadConfigFromEnv(env);
+  const config = validateConfig(mergeConfigs(fileConf, envConf));
   const yaml = createPromptfooConfig({
     baseUrl: config.baseUrl,
     apiKeyEnv: env.ROUTEBENCH_API_KEY ? 'ROUTEBENCH_API_KEY' : 'OPENAI_API_KEY',
@@ -139,8 +164,9 @@ export async function writePromptfooConfig({ benchmarkPath, outputPath, env = pr
 export function summarizeResult(result) {
   const lines = ['RouteBench Phase 0 result', ''];
   for (const model of result.recommendation.ranked_models) {
+    const costPart = model.total_estimated_cost_usd != null ? `, cost=$${model.total_estimated_cost_usd}` : '';
     lines.push(
-      `- ${model.model}: route_score=${model.recommendation_score}, overall=${model.overall_score}, latency_ms=${model.avg_latency_ms}, error_rate=${model.error_rate}`,
+      `- ${model.model}: route_score=${model.recommendation_score}, overall=${model.overall_score}, latency_ms=${model.avg_latency_ms}, error_rate=${model.error_rate}${costPart}`,
     );
   }
   lines.push('', `Recommendation: ${result.recommendation.primary_model}`);

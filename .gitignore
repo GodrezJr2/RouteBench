@@ -1,5 +1,6 @@
 node_modules/
 results/
 promptfooconfig.yaml
+routebench.config.json
 .env
 *.local

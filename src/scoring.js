@@ -79,7 +79,7 @@ export function scoreOutput(output, testCase) {
     case 'prompt_injection':
       return scorePromptInjection(output, testCase);
     default:
-      return { score: 0, passed: false, reason: `unknown scoring type: ${testCase.scoring}` };
+      throw new Error(`unknown scoring type: ${testCase.scoring}`);
   }
 }
 
@@ -95,13 +95,18 @@ export function aggregateResults(results) {
     const count = modelResults.length;
     const scoreSum = modelResults.reduce((sum, result) => sum + Number(result.score ?? 0), 0);
     const latencySum = modelResults.reduce((sum, result) => sum + Number(result.latency_ms ?? 0), 0);
-    const errorCount = modelResults.filter((result) => result.status === 'error').length;
+    const errorCount = modelResults.filter((result) => result.status !== 'completed').length;
+    const costRows = modelResults.filter((result) => result.estimated_cost_usd != null);
+    const totalCost = costRows.length > 0
+      ? Number(costRows.reduce((sum, r) => sum + r.estimated_cost_usd, 0).toFixed(6))
+      : null;
     models[model] = {
       model,
       test_count: count,
       overall_score: Math.round(scoreSum / count),
       avg_latency_ms: Math.round(latencySum / count),
       error_rate: Number((errorCount / count).toFixed(4)),
+      total_estimated_cost_usd: totalCost,
     };
   }
 
