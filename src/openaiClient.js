@@ -109,8 +109,35 @@ function parseChatCompletion(text) {
   };
 }
 
-export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetchImpl = fetch }) {
-  return async function callOpenAICompatible({ model, testCase }) {
+// Transient failures worth retrying — rate limits, gateway/server hiccups, and
+// network/timeout blips. Permanent 4xx (400/401/403/404/422) are NOT retried.
+const TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
+const TRANSIENT_TYPES = new Set(['timeout', 'network_error']);
+
+function isTransient(error) {
+  if (TRANSIENT_TYPES.has(error.type)) return true;
+  return error.type === 'provider_http_error' && TRANSIENT_STATUSES.has(error.status);
+}
+
+function backoffMs(attempt, baseMs, retryAfterMs) {
+  if (retryAfterMs != null) return retryAfterMs;
+  const exp = baseMs * 2 ** (attempt - 1);
+  return exp + Math.floor(Math.random() * baseMs); // full jitter on the base
+}
+
+export function createOpenAICompatibleClient({
+  baseUrl,
+  apiKey,
+  timeoutMs,
+  fetchImpl = fetch,
+  maxRetries = 2,
+  retryBaseMs = 500,
+  sleepImpl,
+}) {
+  const sleep = sleepImpl || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+
+  // One HTTP attempt: returns { output, usage } or throws a classified error.
+  async function attemptOnce({ model, testCase }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -156,10 +183,15 @@ export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetch
 
       if (!response.ok) {
         const body = await response.text();
+        const rawRetryAfter = response.headers?.get?.('retry-after');
+        const retryAfterMs = rawRetryAfter && /^\d+$/.test(String(rawRetryAfter).trim())
+          ? Number(String(rawRetryAfter).trim()) * 1000
+          : null;
         throw providerError(`provider returned ${response.status}: ${body.slice(0, 500)}`, {
           type: 'provider_http_error',
           status: response.status,
           body_preview: body.slice(0, 500),
+          retry_after_ms: retryAfterMs,
         });
       }
 
@@ -176,5 +208,19 @@ export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetch
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  return async function callOpenAICompatible({ model, testCase }) {
+    let lastError;
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
+      try {
+        return await attemptOnce({ model, testCase });
+      } catch (error) {
+        lastError = error;
+        if (!isTransient(error) || attempt > maxRetries) throw error;
+        await sleep(backoffMs(attempt, retryBaseMs, error.retry_after_ms));
+      }
+    }
+    throw lastError;
   };
 }

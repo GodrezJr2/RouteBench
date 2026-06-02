@@ -233,10 +233,56 @@ test('throws useful error for provider failures', async () => {
     apiKey: 'sk-test',
     timeoutMs: 5000,
     fetchImpl,
+    maxRetries: 0,
   });
 
   await assert.rejects(
     () => client({ model: 'demo-model', testCase: { system: 'x', prompt: 'y' } }),
     /provider returned 429: rate limited/,
   );
+});
+
+test('retries transient 429 then succeeds', async () => {
+  let call = 0;
+  const fetchImpl = async () => {
+    call += 1;
+    if (call < 3) return { ok: false, status: 429, headers: { get: () => null }, async text() { return 'slow down'; } };
+    return { ok: true, status: 200, async text() { return '{"choices":[{"message":{"content":"ok"}}]}'; } };
+  };
+  const slept = [];
+  const client = createOpenAICompatibleClient({
+    baseUrl: 'https://r/v1', apiKey: 'k', timeoutMs: 5000, fetchImpl,
+    maxRetries: 3, retryBaseMs: 10, sleepImpl: async (ms) => { slept.push(ms); },
+  });
+  const r = await client({ model: 'demo', testCase: { system: 'x', prompt: 'y' } });
+  assert.equal(r.output, 'ok');
+  assert.equal(call, 3); // failed twice, succeeded on third
+  assert.equal(slept.length, 2);
+});
+
+test('exhausts retries on persistent transient error', async () => {
+  let call = 0;
+  const fetchImpl = async () => { call += 1; return { ok: false, status: 503, headers: { get: () => null }, async text() { return 'unavailable'; } }; };
+  const client = createOpenAICompatibleClient({
+    baseUrl: 'https://r/v1', apiKey: 'k', timeoutMs: 5000, fetchImpl,
+    maxRetries: 2, retryBaseMs: 1, sleepImpl: async () => {},
+  });
+  await assert.rejects(() => client({ model: 'demo', testCase: { system: 'x', prompt: 'y' } }), /503/);
+  assert.equal(call, 3); // 1 initial + 2 retries
+});
+
+test('respects Retry-After header for backoff delay', async () => {
+  let call = 0;
+  const fetchImpl = async () => {
+    call += 1;
+    if (call === 1) return { ok: false, status: 429, headers: { get: (h) => (h === 'retry-after' ? '2' : null) }, async text() { return 'rl'; } };
+    return { ok: true, status: 200, async text() { return '{"choices":[{"message":{"content":"y"}}]}'; } };
+  };
+  const slept = [];
+  const client = createOpenAICompatibleClient({
+    baseUrl: 'https://r/v1', apiKey: 'k', timeoutMs: 5000, fetchImpl,
+    maxRetries: 2, retryBaseMs: 500, sleepImpl: async (ms) => { slept.push(ms); },
+  });
+  await client({ model: 'demo', testCase: { system: 'x', prompt: 'y' } });
+  assert.deepEqual(slept, [2000]); // 2s from Retry-After, not the exponential default
 });
