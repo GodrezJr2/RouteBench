@@ -1074,8 +1074,22 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         renderModelCheckboxes(data.models);
         if (msg) { msg.textContent = data.models.length + ' model(s) found'; msg.className = 'run-msg g'; }
       } catch (e) {
-        if (msg) { msg.textContent = e.message; msg.className = 'run-msg r'; }
+        if (msg) { msg.textContent = e.message + ' — enter model names manually below.'; msg.className = 'run-msg r'; }
       }
+    }
+
+    // Fallback when /models discovery fails or isn't supported: let the user
+    // type comma-separated model names and benchmark them directly.
+    function addManualModels() {
+      var inp = document.getElementById('inp-manual-models');
+      var msg = document.getElementById('discover-msg');
+      var names = (inp ? inp.value : '').split(',').map(function(s) { return s.trim(); }).filter(Boolean);
+      if (names.length === 0) {
+        if (msg) { msg.textContent = 'Type at least one model name.'; msg.className = 'run-msg r'; }
+        return;
+      }
+      renderModelCheckboxes(names.map(function(id) { return { id: id, owned_by: 'manual' }; }));
+      if (msg) { msg.textContent = names.length + ' model(s) added manually'; msg.className = 'run-msg g'; }
     }
 
     async function startBench() {
@@ -1226,6 +1240,13 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       var btnDiscover = h('button', { class: 'btn', id: 'btn-discover' }, 'Discover Models');
       btnDiscover.addEventListener('click', discoverModels);
 
+      var inpManual = document.createElement('input');
+      inpManual.type = 'text'; inpManual.className = 'run-input'; inpManual.id = 'inp-manual-models';
+      inpManual.placeholder = 'or type models: model-a, model-b';
+      inpManual.style.minWidth = '260px';
+      var btnManual = h('button', { class: 'chips-action-btn', id: 'btn-manual' }, 'Add manually');
+      btnManual.addEventListener('click', addManualModels);
+
       var runModels = h('div', { id: 'run-models' });
       var packSel   = h('select', { id: 'sel-pack' });
       var inpMaxCases = document.createElement('input');
@@ -1255,7 +1276,8 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
           span('cfg-key', 'Endpoint:'), inpEndpoint,
           span('cfg-key', 'API Key:'),  inpApiKey
         ),
-        h('div', { class: 'run-row' }, btnDiscover, discoverMsg),
+        h('div', { class: 'run-row' }, btnDiscover, inpManual, btnManual),
+        h('div', { class: 'run-row' }, discoverMsg),
         runModels,
         h('div', { class: 'run-row' },
           h('span', { class: 'pick-label' }, 'Pack:'), packSel,
