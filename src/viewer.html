@@ -1,127 +1,250 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>RouteBench Viewer</title>
+  <title>RouteBench</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+/* ── Tokens ───────────────────────────────────────────────── */
+:root {
+  --bg:       oklch(11%  .012 255);
+  --s1:       oklch(16%  .014 255);
+  --s2:       oklch(20%  .014 255);
+  --s3:       oklch(25%  .015 255);
+  --bd:       oklch(28%  .013 255);
+  --bd2:      oklch(37%  .013 255);
+  --t1:       oklch(93%  .005 255);
+  --t2:       oklch(68%  .009 255);
+  --t3:       oklch(48%  .009 255);
+  --blue:     oklch(62%  .195 255);
+  --blue-h:   oklch(66%  .21  255);
+  --blue-d:   oklch(20%  .055 255);
+  --green:    oklch(72%  .165 155);
+  --green-d:  oklch(18%  .048 155);
+  --amber:    oklch(80%  .135  78);
+  --amber-d:  oklch(20%  .058  78);
+  --red:      oklch(63%  .215  25);
+  --red-d:    oklch(18%  .075  25);
+  --purple:   oklch(68%  .155 300);
+  --purple-d: oklch(18%  .055 300);
+  --r:  6px; --rl: 8px; --rs: 4px;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', monospace;
+}
 
-    header {
-      background: #1e293b; border-bottom: 1px solid #334155;
-      padding: 10px 20px; display: flex; align-items: center;
-      gap: 12px; flex-wrap: wrap; position: sticky; top: 0; z-index: 10;
-    }
-    .logo { font-size: 16px; font-weight: 700; color: #60a5fa; white-space: nowrap; }
-    .logo em { color: #475569; font-style: normal; font-size: 12px; font-weight: 400; }
-    .pickers { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 1; }
-    .pick-group { display: flex; align-items: center; gap: 4px; }
-    .pick-label { font-size: 11px; color: #64748b; white-space: nowrap; }
-    select {
-      background: #0f172a; color: #cbd5e1; border: 1px solid #334155;
-      border-radius: 5px; padding: 4px 8px; font-size: 12px; max-width: 220px;
-    }
-    .btn {
-      background: #3b82f6; color: white; border: none; border-radius: 5px;
-      padding: 5px 16px; font-size: 13px; cursor: pointer; font-weight: 500;
-    }
-    .btn:hover { background: #2563eb; }
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); font-size: 13px; line-height: 1.5; background: var(--bg); color: var(--t1); min-height: 100vh; }
 
-    main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+/* ── Header ───────────────────────────────────────────────── */
+header {
+  position: sticky; top: 0; z-index: 20;
+  height: 48px; background: var(--s1); border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; padding: 0 20px; gap: 14px;
+}
+.logo { font-size: 14px; font-weight: 600; color: var(--t1); white-space: nowrap; flex-shrink: 0; }
+.logo span { color: var(--t3); font-size: 11px; font-weight: 400; margin-left: 5px; }
+.header-files { display: flex; align-items: center; gap: 8px; flex: 1; overflow: hidden; }
+.pick-group { display: flex; align-items: center; gap: 5px; }
+.pick-label { font-size: 11px; font-weight: 500; color: var(--t3); white-space: nowrap; }
 
-    .section { margin-bottom: 20px; }
-    h2 {
-      font-size: 11px; font-weight: 600; color: #64748b;
-      text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;
-    }
+/* ── Controls ─────────────────────────────────────────────── */
+select {
+  appearance: none;
+  background: var(--s2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2348546a'/%3E%3C/svg%3E") no-repeat right 8px center;
+  border: 1px solid var(--bd); border-radius: var(--r);
+  color: var(--t1); font-family: var(--font); font-size: 12px;
+  padding: 4px 24px 4px 8px; max-width: 210px; cursor: pointer;
+  transition: border-color 120ms;
+}
+select:hover { border-color: var(--bd2); }
+select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-d); }
 
-    .rec-box {
-      background: #1e293b; border: 1px solid #334155;
-      border-left: 4px solid #3b82f6; border-radius: 8px; padding: 14px 18px;
-    }
-    .rec-primary { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
-    .rec-fallback { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
-    .rec-reason { font-size: 12px; color: #64748b; line-height: 1.5; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--font); font-size: 12px; font-weight: 500;
+  padding: 5px 14px; border-radius: var(--r); border: none; cursor: pointer;
+  background: var(--blue); color: #fff;
+  transition: background 120ms;
+  white-space: nowrap; flex-shrink: 0;
+}
+.btn:hover { background: var(--blue-h); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 
-    .cards { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-    .card {
-      background: #1e293b; border: 1px solid #334155;
-      border-radius: 8px; padding: 14px 16px; flex: 1; min-width: 130px;
-    }
-    .card-label { font-size: 10px; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
-    .card-value { font-size: 26px; font-weight: 700; line-height: 1; }
-    .card-sub { font-size: 11px; color: #475569; margin-top: 4px; }
+/* ── Layout ───────────────────────────────────────────────── */
+main {
+  max-width: 1320px; margin: 0 auto;
+  padding: 20px; display: flex; flex-direction: column; gap: 16px;
+}
 
-    .tbl-wrap { overflow-x: auto; }
-    table {
-      width: 100%; border-collapse: collapse; background: #1e293b;
-      border-radius: 8px; overflow: hidden; font-size: 13px;
-    }
-    th {
-      background: #162032; font-size: 10px; font-weight: 600; color: #475569;
-      text-transform: uppercase; letter-spacing: 0.6px;
-      padding: 9px 12px; text-align: left; white-space: nowrap;
-    }
-    td { padding: 9px 12px; border-top: 1px solid #0f172a; vertical-align: top; }
-    tr:hover td { background: #162032; }
+/* ── Run panel ────────────────────────────────────────────── */
+details#run-panel {
+  background: var(--s1); border: 1px solid var(--bd); border-radius: var(--rl);
+}
+details#run-panel > summary {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  font-size: 13px; font-weight: 600; color: var(--t1);
+  cursor: pointer; user-select: none; list-style: none;
+}
+details#run-panel > summary::-webkit-details-marker { display: none; }
+details#run-panel > summary::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px;
+  border-right: 1.5px solid var(--t3); border-bottom: 1.5px solid var(--t3);
+  transform: rotate(-45deg); transition: transform 150ms ease-out; flex-shrink: 0;
+}
+details#run-panel[open] > summary::before { transform: rotate(45deg); }
 
-    .g { color: #4ade80; }
-    .a { color: #fbbf24; }
-    .r { color: #f87171; }
-    .b { color: #60a5fa; }
-    .m { color: #c084fc; }
+.run-body {
+  padding: 0 16px 16px;
+  display: flex; flex-direction: column; gap: 12px;
+  border-top: 1px solid var(--bd);
+}
+.cfg-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cfg-key { font-size: 11px; font-weight: 500; color: var(--t3); white-space: nowrap; }
 
-    .badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; }
-    .bg { background: #14532d; color: #4ade80; }
-    .ba { background: #451a03; color: #fbbf24; }
-    .br { background: #450a0a; color: #f87171; }
-    .bb { background: #1e3a5f; color: #93c5fd; }
+.run-input {
+  background: var(--s2); border: 1px solid var(--bd); border-radius: var(--r);
+  color: var(--t1); font-family: var(--mono); font-size: 12px; padding: 6px 10px;
+  transition: border-color 120ms, box-shadow 120ms;
+}
+.run-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-d); }
+.run-input::placeholder { color: var(--t3); font-family: var(--font); }
+#inp-endpoint { width: 280px; }
+#inp-apikey   { width: 210px; }
 
-    pre {
-      background: #1e293b; border: 1px solid #334155; border-radius: 8px;
-      padding: 14px; font-size: 12px; line-height: 1.6; overflow-x: auto;
-      color: #a5f3fc; white-space: pre;
-    }
+.run-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.run-msg { font-size: 12px; color: var(--t2); }
+.run-msg.g { color: var(--green); }
+.run-msg.a { color: var(--amber); }
+.run-msg.r { color: var(--red);   }
 
-    details { background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; }
-    summary {
-      cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600;
-      color: #cbd5e1; user-select: none; list-style: none;
-      display: flex; align-items: center; gap: 8px;
-    }
-    summary::before { content: '▶'; font-size: 10px; color: #475569; }
-    details[open] summary::before { content: '▼'; }
-    .details-body { padding: 0 0 4px; }
+/* ── Model chips ──────────────────────────────────────────── */
+.chips-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;
+}
+.chips-label { font-size: 11px; font-weight: 500; color: var(--t3); letter-spacing: .3px; }
+.chips-actions { display: flex; gap: 12px; }
+.chips-action-btn {
+  font-size: 11px; font-family: var(--font); color: var(--t3);
+  background: none; border: none; cursor: pointer; padding: 0; transition: color 120ms;
+}
+.chips-action-btn:hover { color: var(--t2); }
 
-    .empty { color: #475569; font-size: 13px; padding: 16px; }
-    #loading { padding: 40px 0; text-align: center; color: #475569; font-size: 14px; }
+.model-list {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  max-height: 156px; overflow-y: auto; padding: 1px 0;
+}
+.model-list::-webkit-scrollbar { width: 4px; }
+.model-list::-webkit-scrollbar-track { background: transparent; }
+.model-list::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
 
-    .run-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
-    .run-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .run-msg { font-size: 12px; }
-    .model-list { display: flex; flex-wrap: wrap; gap: 6px; }
-    .model-item { display: flex; align-items: center; gap: 5px; background: #162032; border-radius: 5px; padding: 4px 10px; }
-    .model-item input[type=checkbox] { cursor: pointer; accent-color: #3b82f6; }
-    .model-item label { font-size: 12px; color: #cbd5e1; cursor: pointer; }
-    .progress-track { height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; flex: 1; min-width: 160px; }
-    .progress-fill { height: 100%; background: #3b82f6; border-radius: 3px; transition: width 0.4s ease; width: 0%; }
-    .progress-label { font-size: 11px; color: #64748b; white-space: nowrap; }
-    .cfg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
-    .cfg-key { color: #64748b; }
-    .run-input {
-      background: #0f172a; color: #cbd5e1; border: 1px solid #334155;
-      border-radius: 5px; padding: 4px 10px; font-size: 12px;
-    }
-    .run-input:focus { outline: none; border-color: #3b82f6; }
-    #inp-endpoint { min-width: 220px; }
-    #inp-apikey { min-width: 200px; }
+.model-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  border: 1px solid var(--bd); background: var(--s2);
+  cursor: pointer; transition: border-color 120ms, background 120ms;
+}
+.model-item:has(input:checked) { border-color: var(--blue); background: var(--blue-d); }
+.model-item input[type=checkbox] { accent-color: var(--blue); cursor: pointer; width: 11px; height: 11px; flex-shrink: 0; }
+.model-item label { font-size: 11px; color: var(--t1); cursor: pointer; font-family: var(--mono); white-space: nowrap; }
+
+/* ── Progress ─────────────────────────────────────────────── */
+.progress-track { height: 3px; background: var(--s3); border-radius: 2px; overflow: hidden; flex: 1; min-width: 140px; }
+.progress-fill  { height: 100%; background: var(--blue); border-radius: 2px; transition: width .35s ease-out; width: 0%; }
+.progress-label { font-size: 11px; color: var(--t3); white-space: nowrap; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+
+/* ── Section labels ───────────────────────────────────────── */
+.section { display: flex; flex-direction: column; gap: 10px; }
+h2 { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .8px; }
+
+/* ── Rec box ──────────────────────────────────────────────── */
+.rec-box {
+  background: var(--s1); border: 1px solid var(--bd); border-radius: var(--rl);
+  padding: 16px 20px;
+}
+.rec-primary { font-size: 15px; font-weight: 600; margin-bottom: 5px; }
+.rec-fallback { font-size: 12px; color: var(--t2); margin-bottom: 7px; }
+.rec-reason   { font-size: 12px; color: var(--t3); line-height: 1.6; max-width: 80ch; }
+
+/* ── Metric cards ─────────────────────────────────────────── */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px,1fr)); gap: 8px; }
+.card  { background: var(--s1); border: 1px solid var(--bd); border-radius: var(--rl); padding: 14px 16px; }
+.card-label { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 6px; }
+.card-value { font-size: 22px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; font-family: var(--mono); }
+.card-sub   { font-size: 11px; color: var(--t3); margin-top: 5px; }
+
+/* ── Color utilities ──────────────────────────────────────── */
+.g { color: var(--green);  }
+.a { color: var(--amber);  }
+.r { color: var(--red);    }
+.b { color: var(--blue);   }
+.m { color: var(--purple); }
+
+/* ── Badges ───────────────────────────────────────────────── */
+.badge { display: inline-block; padding: 1px 6px; border-radius: var(--rs); font-size: 10px; font-weight: 600; letter-spacing: .2px; }
+.bg { background: var(--green-d);  color: var(--green);  }
+.ba { background: var(--amber-d);  color: var(--amber);  }
+.br { background: var(--red-d);    color: var(--red);    }
+.bb { background: var(--blue-d);   color: var(--blue);   }
+
+/* ── Tables ───────────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; border-radius: var(--rl); border: 1px solid var(--bd); }
+table { width: 100%; border-collapse: collapse; font-size: 12px; background: var(--s1); }
+thead { background: oklch(13% .013 255); }
+th {
+  padding: 8px 12px; text-align: left;
+  font-size: 10px; font-weight: 600; color: var(--t3);
+  text-transform: uppercase; letter-spacing: .6px; white-space: nowrap;
+  border-bottom: 1px solid var(--bd);
+}
+td { padding: 8px 12px; border-top: 1px solid oklch(14% .013 255); vertical-align: middle; }
+tbody tr:first-child td { border-top: none; }
+tbody tr:hover td { background: var(--s2); }
+
+/* ── Collapsible details (results sections) ───────────────── */
+details:not(#run-panel) {
+  background: var(--s1); border: 1px solid var(--bd);
+  border-radius: var(--rl); overflow: hidden;
+}
+details:not(#run-panel) summary {
+  cursor: pointer; padding: 11px 16px;
+  font-size: 13px; font-weight: 600; color: var(--t1);
+  user-select: none; list-style: none;
+  display: flex; align-items: center; gap: 8px;
+}
+details:not(#run-panel) summary::-webkit-details-marker { display: none; }
+details:not(#run-panel) summary::before {
+  content: ''; display: inline-block;
+  width: 6px; height: 6px;
+  border-right: 1.5px solid var(--t3); border-bottom: 1.5px solid var(--t3);
+  transform: rotate(-45deg); transition: transform 150ms ease-out; flex-shrink: 0;
+}
+details:not(#run-panel)[open] summary::before { transform: rotate(45deg); }
+.details-body { padding: 0 0 4px; }
+
+/* ── Code block ───────────────────────────────────────────── */
+pre {
+  background: var(--s2); border: 1px solid var(--bd); border-radius: var(--rl);
+  padding: 14px; font-size: 11.5px; line-height: 1.65; overflow-x: auto;
+  color: oklch(76% .12 195); font-family: var(--mono); white-space: pre;
+}
+
+/* ── Empty / loading ──────────────────────────────────────── */
+.empty { font-size: 12px; color: var(--t3); padding: 20px 16px; text-align: center; }
+#loading {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 56px; color: var(--t3); font-size: 13px;
+}
+#loading:empty { display: none; }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">RouteBench <em>Viewer</em></div>
-    <div class="pickers">
+    <div class="logo">RouteBench <span>viewer</span></div>
+    <div class="header-files">
       <div class="pick-group">
         <span class="pick-label">Result</span>
         <select id="sel-result"></select>
@@ -139,31 +262,31 @@
   </header>
 
   <main>
-    <details id="run-panel" style="margin-bottom:20px">
+    <details id="run-panel">
       <summary>Run Benchmark</summary>
       <div id="run-body" class="run-body"></div>
     </details>
-    <div id="loading">Loading file list&#x2026;</div>
+    <div id="loading">Loading&#x2026;</div>
     <div id="content" style="display:none">
-      <div id="sec-rec" class="section"></div>
-      <div id="sec-models" class="section"></div>
-      <div id="sec-cats" class="section"></div>
-      <div id="sec-failed" class="section"></div>
+      <div id="sec-rec"     class="section"></div>
+      <div id="sec-models"  class="section"></div>
+      <div id="sec-cats"    class="section"></div>
+      <div id="sec-failed"  class="section"></div>
       <div id="sec-routing" class="section"></div>
       <div id="sec-compare" class="section"></div>
     </div>
   </main>
 
   <script>
-    // Element creation helper — safe DOM only, no innerHTML
+    // Safe DOM helpers — no innerHTML anywhere
     function h(tag, opts) {
       var elem = document.createElement(tag);
       var children = Array.prototype.slice.call(arguments, 2);
       if (opts) {
         if (opts.class) elem.className = opts.class;
-        if (opts.id) elem.id = opts.id;
+        if (opts.id)    elem.id = opts.id;
         if (opts.style) elem.style.cssText = opts.style;
-        if (opts.open) elem.open = true;
+        if (opts.open)  elem.open = true;
         if (opts.title) elem.title = opts.title;
       }
       for (var i = 0; i < children.length; i++) {
@@ -178,22 +301,18 @@
       if (child instanceof Node) parent.appendChild(child);
       else parent.appendChild(document.createTextNode(String(child)));
     }
-    function txt(s) { return document.createTextNode(String(s ?? '')); }
-    function mount(id, children) {
-      var el = document.getElementById(id);
-      if (!el) return;
-      el.replaceChildren.apply(el, [].concat(children).filter(Boolean));
-    }
-    function span(cls, text) { return h('span', { class: cls }, text); }
-    function badge(cls, text) { return h('span', { class: 'badge ' + cls }, text); }
-    function th(text) { return h('th', null, text); }
-    function td(content, style) { return h('td', style ? { style: style } : null, content); }
+    function txt(s)         { return document.createTextNode(String(s ?? '')); }
+    function mount(id, ch)  { var el = document.getElementById(id); if (!el) return; el.replaceChildren.apply(el, [].concat(ch).filter(Boolean)); }
+    function span(cls, t)   { return h('span', { class: cls }, t); }
+    function badge(cls, t)  { return h('span', { class: 'badge ' + cls }, t); }
+    function th(t)          { return h('th', null, t); }
+    function td(c, s)       { return h('td', s ? { style: s } : null, c); }
 
-    function pct(r) { return Math.round((r ?? 0) * 100) + '%'; }
-    function ms(v) { return (v ?? 0) + 'ms'; }
+    function pct(r)      { return Math.round((r ?? 0) * 100) + '%'; }
+    function ms(v)       { return (v ?? 0) + 'ms'; }
     function scoreColor(n) { return n >= 85 ? 'g' : n >= 70 ? 'a' : 'r'; }
-    function errColor(r) { return r === 0 ? 'g' : r <= 0.1 ? 'a' : 'r'; }
-    function statusBadge(s) { return s === 'completed' ? 'bg' : s === 'provider_error' ? 'br' : 'ba'; }
+    function errColor(r)   { return r === 0 ? 'g' : r <= 0.1 ? 'a' : 'r'; }
+    function statusBadge(s){ return s === 'completed' ? 'bg' : s === 'provider_error' ? 'br' : 'ba'; }
 
     function makeFallbackList(models) {
       if (!models || models.length === 0) return [txt('—')];
@@ -259,9 +378,9 @@
     async function refreshFileSelects(autoSelectResult) {
       var data = await fetchJSON('/api/files');
       var cats = categorizeFiles(data.files);
-      populateSel('sel-result', cats.result, false, null);
-      populateSel('sel-routing', cats.routing, true, 'routing');
-      populateSel('sel-compare', cats.compare, true, 'compare');
+      populateSel('sel-result',  cats.result,  false, null);
+      populateSel('sel-routing', cats.routing, true,  'routing');
+      populateSel('sel-compare', cats.compare, true,  'compare');
       if (autoSelectResult) document.getElementById('sel-result').value = autoSelectResult;
       return cats;
     }
@@ -271,8 +390,7 @@
       sel.replaceChildren();
       if (optional) {
         var none = document.createElement('option');
-        none.value = '';
-        none.textContent = '— none —';
+        none.value = ''; none.textContent = '— none —';
         sel.appendChild(none);
       }
       var sorted = files.slice().sort();
@@ -307,9 +425,7 @@
         if (cats.result.length > 0) {
           await load();
         } else {
-          loadDiv.replaceChildren(
-            h('p', { class: 'empty' }, 'No result files in results/. Run npm run bench or npm run demo first.')
-          );
+          loadDiv.replaceChildren(h('p', { class: 'empty' }, 'No result files in results/. Run npm run bench or npm run demo first.'));
         }
       } catch (e) {
         loadDiv.replaceChildren(h('p', { class: 'empty' }, 'Error loading file list: ' + e.message));
@@ -317,7 +433,7 @@
     }
 
     async function load() {
-      var resultPath = document.getElementById('sel-result').value;
+      var resultPath  = document.getElementById('sel-result').value;
       var routingPath = document.getElementById('sel-routing').value;
       var comparePath = document.getElementById('sel-compare').value;
       var loadDiv = document.getElementById('loading');
@@ -326,7 +442,7 @@
       content.style.display = 'none';
       try {
         var results = await Promise.all([
-          resultPath ? fetchJSON('/api/file?path=' + encodeURIComponent(resultPath)) : Promise.resolve(null),
+          resultPath  ? fetchJSON('/api/file?path=' + encodeURIComponent(resultPath))  : Promise.resolve(null),
           routingPath ? fetchJSON('/api/file?path=' + encodeURIComponent(routingPath)) : Promise.resolve(null),
           comparePath ? fetchJSON('/api/file?path=' + encodeURIComponent(comparePath)) : Promise.resolve(null),
         ]);
@@ -345,7 +461,7 @@
     }
 
     function renderResult(data) {
-      var rec = data.recommendation || {};
+      var rec    = data.recommendation || {};
       var ranked = rec.ranked_models || [];
       var primary = ranked.find(function(m) { return m.model === rec.primary_model; });
 
@@ -358,10 +474,10 @@
       var cards = [];
       if (primary) {
         cards = [
-          makeCard('Route Score', primary.recommendation_score, 'primary model', scoreColor(primary.recommendation_score)),
-          makeCard('Overall Score', primary.overall_score, 'benchmark quality', scoreColor(primary.overall_score)),
-          makeCard('Avg Latency', ms(primary.avg_latency_ms), 'per request', 'b'),
-          makeCard('Error Rate', pct(primary.error_rate), 'failed requests', errColor(primary.error_rate)),
+          makeCard('Route Score',  primary.recommendation_score,                   'primary model',     scoreColor(primary.recommendation_score)),
+          makeCard('Overall Score',primary.overall_score,                           'benchmark quality', scoreColor(primary.overall_score)),
+          makeCard('Avg Latency',  ms(primary.avg_latency_ms),                     'per request',       'b'),
+          makeCard('Error Rate',   pct(primary.error_rate),                         'failed requests',   errColor(primary.error_rate)),
         ];
         if (primary.total_estimated_cost_usd != null) {
           cards.push(makeCard('Total Cost', '$' + primary.total_estimated_cost_usd, 'all test cases', 'm'));
@@ -374,13 +490,13 @@
       if (hasCost) headers.push('Cost');
       var modelRows = ranked.map(function(m, i) {
         var cells = [
-          td(String(i + 1), 'color:#475569'),
+          td(String(i + 1), 'color:var(--t3)'),
           td(h('strong', null, m.model)),
           td(span(scoreColor(m.recommendation_score), String(m.recommendation_score))),
-          td(span(scoreColor(m.overall_score), String(m.overall_score))),
+          td(span(scoreColor(m.overall_score),        String(m.overall_score))),
           td(ms(m.avg_latency_ms)),
           td(span(errColor(m.error_rate), pct(m.error_rate))),
-          td(String(m.test_count != null ? m.test_count : '—'), 'color:#475569'),
+          td(String(m.test_count != null ? m.test_count : '—'), 'color:var(--t3)'),
         ];
         if (hasCost) cells.push(td(m.total_estimated_cost_usd != null ? '$' + m.total_estimated_cost_usd : '—'));
         return h('tr', null, cells);
@@ -394,7 +510,7 @@
           td(badge('bb', row.category)),
           td(span(scoreColor(row.avg), String(row.avg))),
           td(row.failures > 0 ? span('r', String(row.failures)) : span('g', '0')),
-          td(String(row.count), 'color:#475569')
+          td(String(row.count), 'color:var(--t3)')
         );
       });
       mount('sec-cats', [h('h2', null, 'Category Breakdown'), makeTable(['Model', 'Category', 'Avg Score', 'Failures', 'Cases'], catRows)]);
@@ -409,12 +525,12 @@
           var msg = String(r.error_message || r.score_reason || '').slice(0, 120);
           return h('tr', null,
             td(r.model),
-            td(r.test_case_id, 'font-family:monospace;font-size:11px'),
+            td(r.test_case_id, 'font-family:var(--mono);font-size:11px'),
             td(r.category || ''),
             td(badge(statusBadge(r.status), r.status)),
             td(String(r.score || 0)),
             td(ms(r.latency_ms)),
-            td(msg, 'font-size:11px;color:#94a3b8;max-width:280px')
+            td(msg, 'font-size:11px;color:var(--t3);max-width:280px')
           );
         });
         failedBody = h('div', { class: 'details-body' },
@@ -426,20 +542,20 @@
 
     function renderRouting(routing) {
       var rules = routing.routing_rules || [];
-      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-left-color:#22c55e' },
+      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px' },
         h('div', { class: 'rec-primary' }, 'Primary: ', span('b', routing.primary_model || '—')),
         h('div', { class: 'rec-fallback' }, 'Fallback: ', makeFallbackList(routing.fallback_models)),
-        h('div', { class: 'rec-reason' }, 'Endpoint: ' + (routing.endpoint || '—') + ' · Schema: ' + (routing.schema_version || '—'))
+        h('div', { class: 'rec-reason' }, 'Endpoint: ' + (routing.endpoint || '—') + '  Schema: ' + (routing.schema_version || '—'))
       );
       var ruleRows = rules.map(function(r) {
         return h('tr', null,
-          td(String(r.priority), 'color:#475569'),
+          td(String(r.priority), 'color:var(--t3)'),
           td(h('strong', null, r.model)),
-          td(span(scoreColor(r.route_score), String(r.route_score))),
-          td(span(scoreColor(r.overall_score), String(r.overall_score))),
+          td(span(scoreColor(r.route_score),  String(r.route_score))),
+          td(span(scoreColor(r.overall_score),String(r.overall_score))),
           td(ms(r.avg_latency_ms)),
           td(span(errColor(r.error_rate), pct(r.error_rate))),
-          td(r.reason || '', 'font-size:11px;color:#94a3b8')
+          td(r.reason || '', 'font-size:11px;color:var(--t3)')
         );
       });
       var pre = h('pre', null);
@@ -457,25 +573,25 @@
     }
 
     function renderCompare(compare) {
-      var rc = compare.recommendation_change || {};
-      var s = compare.summary || {};
+      var rc  = compare.recommendation_change || {};
+      var s   = compare.summary || {};
       var mcs = compare.model_comparisons || [];
 
       var summaryCards = h('div', { class: 'cards' },
-        makeCard('Regressions', s.total_regressions || 0, 'score decreased', (s.total_regressions || 0) > 0 ? 'r' : 'g'),
+        makeCard('Regressions',  s.total_regressions  || 0, 'score decreased', (s.total_regressions  || 0) > 0 ? 'r' : 'g'),
         makeCard('Improvements', s.total_improvements || 0, 'score increased', (s.total_improvements || 0) > 0 ? 'g' : ''),
-        makeCard('New Failures', s.new_failure_count || 0, 'newly broken', (s.new_failure_count || 0) > 0 ? 'r' : 'g'),
-        makeCard('Recovered', s.recovered_count || 0, 'fixed cases', (s.recovered_count || 0) > 0 ? 'g' : '')
+        makeCard('New Failures',  s.new_failure_count  || 0, 'newly broken',   (s.new_failure_count  || 0) > 0 ? 'r' : 'g'),
+        makeCard('Recovered',    s.recovered_count    || 0, 'fixed cases',    (s.recovered_count    || 0) > 0 ? 'g' : '')
       );
 
-      var recBorderColor = rc.primary_changed ? '#ef4444' : '#22c55e';
+      var recBorderColor = rc.primary_changed ? 'var(--red)' : 'var(--green)';
       var primaryLine = rc.primary_changed
         ? h('div', { class: 'rec-primary r' }, 'Primary changed: ', span('r', rc.baseline_primary || ''), ' → ', span('g', rc.candidate_primary || ''))
         : h('div', { class: 'rec-primary g' }, 'Primary unchanged: ', span('b', rc.baseline_primary || ''));
       var fallbackLine = rc.fallback_changed
         ? h('div', { class: 'rec-fallback r' }, 'Fallback chain changed')
-        : h('div', { class: 'rec-fallback' }, 'Fallback chain unchanged');
-      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-left-color:' + recBorderColor }, primaryLine, fallbackLine);
+        : h('div', { class: 'rec-fallback' },   'Fallback chain unchanged');
+      var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-color:' + recBorderColor }, primaryLine, fallbackLine);
 
       var mcRows = mcs.map(function(mc) {
         var modelCell = h('td', null, h('strong', null, mc.model));
@@ -486,52 +602,45 @@
           if (val == null) return td('—');
           var rounded = Math.round(val);
           var sign = rounded > 0 ? '+' : '';
-          var cls = rounded > 0 ? (posGood ? 'g' : 'r') : rounded < 0 ? (posGood ? 'r' : 'g') : '';
+          var cls  = rounded > 0 ? (posGood ? 'g' : 'r') : rounded < 0 ? (posGood ? 'r' : 'g') : '';
           return td(span(cls, sign + rounded + (suffix || '')));
         }
 
         return h('tr', null,
           modelCell,
-          td(mc.baseline ? String(mc.baseline.overall_score) : '—', 'color:#475569'),
-          td(mc.candidate ? String(mc.candidate.overall_score) : '—', 'color:#475569'),
+          td(mc.baseline  ? String(mc.baseline.overall_score)  : '—', 'color:var(--t3)'),
+          td(mc.candidate ? String(mc.candidate.overall_score) : '—', 'color:var(--t3)'),
           deltaTd(mc.score_delta, '', true),
           deltaTd(mc.latency_delta_ms, 'ms', false),
           deltaTd(mc.error_rate_delta != null ? mc.error_rate_delta * 100 : null, '%', false)
         );
       });
-      var mcTable = makeTable(['Model', 'Baseline', 'Candidate', 'Score Δ', 'Latency Δ', 'Error Δ'], mcRows);
+      var mcTable = makeTable(['Model', 'Baseline', 'Candidate', 'Score Delta', 'Latency Delta', 'Error Delta'], mcRows);
 
       var caseRows = [];
       mcs.forEach(function(mc) {
-        (mc.new_failures || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'NEW FAILURE', cls: 'br' }); });
-        (mc.recovered || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'RECOVERED', cls: 'bg' }); });
-        (mc.status_changes || []).forEach(function(sc) { caseRows.push({ model: mc.model, id: sc.case_id, type: sc.baseline_status + ' → ' + sc.candidate_status, cls: 'ba' }); });
+        (mc.new_failures  || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'NEW FAILURE', cls: 'br' }); });
+        (mc.recovered     || []).forEach(function(id) { caseRows.push({ model: mc.model, id: id, type: 'RECOVERED',   cls: 'bg' }); });
+        (mc.status_changes|| []).forEach(function(sc) { caseRows.push({ model: mc.model, id: sc.case_id, type: sc.baseline_status + ' → ' + sc.candidate_status, cls: 'ba' }); });
       });
 
-      var parts = [
-        h('h2', null, 'Compare Run'),
-        summaryCards,
-        recBox,
-        h('h2', null, 'Model Changes'),
-        mcTable,
-      ];
+      var parts = [h('h2', null, 'Compare Run'), summaryCards, recBox, h('h2', null, 'Model Changes'), mcTable];
 
       if (caseRows.length > 0) {
         var cRows = caseRows.map(function(row) {
           return h('tr', null,
             td(row.model),
-            td(row.id, 'font-family:monospace;font-size:11px'),
+            td(row.id, 'font-family:var(--mono);font-size:11px'),
             td(badge(row.cls, row.type))
           );
         });
-        parts.push(
-          h('h2', { style: 'margin-top:12px' }, 'Case Status Changes'),
-          makeTable(['Model', 'Case', 'Change'], cRows)
-        );
+        parts.push(h('h2', { style: 'margin-top:12px' }, 'Case Status Changes'), makeTable(['Model', 'Case', 'Change'], cRows));
       }
 
       mount('sec-compare', parts);
     }
+
+    // ── Run panel ─────────────────────────────────────────────
 
     function renderModelCheckboxes(models) {
       var wrap = document.getElementById('run-models');
@@ -539,9 +648,22 @@
       wrap.replaceChildren();
       if (!models || models.length === 0) {
         wrap.appendChild(h('p', { class: 'empty' }, 'No models available.'));
-        updateRunBtn();
-        return;
+        updateRunBtn(); return;
       }
+      var btnAll  = h('button', { class: 'chips-action-btn' }, 'All');
+      var btnNone = h('button', { class: 'chips-action-btn' }, 'None');
+      btnAll.addEventListener('click', function() {
+        wrap.querySelectorAll('.model-item input[type=checkbox]').forEach(function(cb) { cb.checked = true; });
+        updateRunBtn();
+      });
+      btnNone.addEventListener('click', function() {
+        wrap.querySelectorAll('.model-item input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
+        updateRunBtn();
+      });
+      var chipHeader = h('div', { class: 'chips-header' },
+        h('span', { class: 'chips-label' }, models.length + ' models'),
+        h('div', { class: 'chips-actions' }, btnAll, btnNone)
+      );
       var list = h('div', { class: 'model-list' });
       models.forEach(function(m) {
         var id = m.id || String(m);
@@ -556,26 +678,25 @@
         }
         list.appendChild(h('div', { class: 'model-item' }, cb, lbl));
       });
-      wrap.appendChild(list);
+      wrap.replaceChildren(chipHeader, list);
       updateRunBtn();
     }
 
     function updateRunBtn() {
       var btn = document.getElementById('btn-run-bench');
       if (!btn) return;
-      var checked = document.querySelectorAll('#run-models input[type=checkbox]:checked');
-      btn.disabled = checked.length < 2;
+      btn.disabled = document.querySelectorAll('#run-models input[type=checkbox]:checked').length < 2;
     }
 
     async function discoverModels() {
-      var msg = document.getElementById('discover-msg');
+      var msg      = document.getElementById('discover-msg');
       var endpoint = (document.getElementById('inp-endpoint') || {}).value || '';
-      var apikey = (document.getElementById('inp-apikey') || {}).value || '';
+      var apikey   = (document.getElementById('inp-apikey')   || {}).value || '';
       if (msg) { msg.textContent = 'Discovering…'; msg.className = 'run-msg'; }
       try {
         var body = {};
         if (endpoint) body.base_url = endpoint;
-        if (apikey) body.api_key = apikey;
+        if (apikey)   body.api_key  = apikey;
         var r = await fetch('/api/discover', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -590,15 +711,14 @@
       }
     }
 
-
     async function startBench() {
       var checkboxes = document.querySelectorAll('#run-models input[type=checkbox]:checked');
-      var models = Array.from(checkboxes).map(function(cb) { return cb.value; });
-      var packSel = document.getElementById('sel-pack');
-      var benchmark = packSel ? packSel.value : 'benchmarks/phase0.json';
-      var endpoint = (document.getElementById('inp-endpoint') || {}).value || '';
-      var apikey = (document.getElementById('inp-apikey') || {}).value || '';
-      var runMsg = document.getElementById('run-msg');
+      var models     = Array.from(checkboxes).map(function(cb) { return cb.value; });
+      var packSel    = document.getElementById('sel-pack');
+      var benchmark  = packSel ? packSel.value : 'benchmarks/phase0.json';
+      var endpoint   = (document.getElementById('inp-endpoint') || {}).value || '';
+      var apikey     = (document.getElementById('inp-apikey')   || {}).value || '';
+      var runMsg     = document.getElementById('run-msg');
 
       if (models.length < 2) {
         if (runMsg) { runMsg.textContent = 'Select at least 2 models.'; runMsg.className = 'run-msg r'; }
@@ -610,10 +730,13 @@
       if (progressWrap) progressWrap.style.display = 'none';
 
       try {
+        var payload = { models: models, benchmark: benchmark };
+        if (endpoint) payload.base_url = endpoint;
+        if (apikey)   payload.api_key  = apikey;
         var r = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(Object.assign({ models: models, benchmark: benchmark }, endpoint ? { base_url: endpoint } : {}, apikey ? { api_key: apikey } : {})),
+          body: JSON.stringify(payload),
         });
         var data = await r.json();
         if (!r.ok) throw new Error(data.error || 'start failed');
@@ -627,13 +750,12 @@
     }
 
     function updateRunProgress(progress) {
-      var fill = document.getElementById('run-progress-fill');
+      var fill  = document.getElementById('run-progress-fill');
       var label = document.getElementById('run-progress-label');
-      var total = progress.total || 0;
-      var done = progress.done || 0;
-      var pct = total > 0 ? Math.round((done / total) * 100) : 0;
-      if (fill) fill.style.width = pct + '%';
-      if (label) label.textContent = done + ' / ' + total + ' cases (' + pct + '%)';
+      var total = progress.total || 0, done = progress.done || 0;
+      var pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+      if (fill)  fill.style.width = pct + '%';
+      if (label) label.textContent = done + ' / ' + total + '  (' + pct + '%)';
     }
 
     function pollRun(runId) {
@@ -650,7 +772,7 @@
             if (progressWrap) progressWrap.style.display = 'none';
             if (status.result_path) {
               try {
-                var cats = await refreshFileSelects(status.result_path);
+                await refreshFileSelects(status.result_path);
                 document.getElementById('sel-result').value = status.result_path;
                 document.getElementById('run-panel').open = false;
                 await load();
@@ -673,19 +795,22 @@
       inpEndpoint.placeholder = 'https://router.example.com/v1';
       var inpApiKey = document.createElement('input');
       inpApiKey.type = 'password'; inpApiKey.className = 'run-input'; inpApiKey.id = 'inp-apikey';
-      inpApiKey.placeholder = 'sk-...';
+      inpApiKey.placeholder = 'sk-…';
+
       var discoverMsg = h('span', { class: 'run-msg', id: 'discover-msg' }, '');
       var btnDiscover = h('button', { class: 'btn', id: 'btn-discover' }, 'Discover Models');
       btnDiscover.addEventListener('click', discoverModels);
+
       var runModels = h('div', { id: 'run-models' });
-      var packSel = h('select', { id: 'sel-pack' });
-      var runMsg = h('span', { class: 'run-msg', id: 'run-msg' }, '');
-      var btnRun = h('button', { class: 'btn', id: 'btn-run-bench' }, 'Start Benchmark');
+      var packSel   = h('select', { id: 'sel-pack' });
+      var runMsg    = h('span', { class: 'run-msg', id: 'run-msg' }, '');
+      var btnRun    = h('button', { class: 'btn', id: 'btn-run-bench' }, 'Start Benchmark');
       btnRun.disabled = true;
       btnRun.addEventListener('click', startBench);
-      var progressFill = h('div', { class: 'progress-fill', id: 'run-progress-fill' });
-      var progressLabel = h('span', { class: 'progress-label', id: 'run-progress-label' }, '');
-      var progressWrap = h('div', { class: 'run-row', id: 'run-progress-wrap', style: 'display:none' },
+
+      var progressFill  = h('div', { class: 'progress-fill',  id: 'run-progress-fill' });
+      var progressLabel = h('span',{ class: 'progress-label', id: 'run-progress-label' }, '');
+      var progressWrap  = h('div', { class: 'run-row', id: 'run-progress-wrap', style: 'display:none' },
         h('div', { class: 'progress-track' }, progressFill),
         progressLabel
       );
@@ -693,7 +818,7 @@
       body.replaceChildren(
         h('div', { class: 'cfg-row' },
           span('cfg-key', 'Endpoint:'), inpEndpoint,
-          span('cfg-key', 'API Key:'), inpApiKey
+          span('cfg-key', 'API Key:'),  inpApiKey
         ),
         h('div', { class: 'run-row' }, btnDiscover, discoverMsg),
         runModels,
@@ -716,7 +841,7 @@
           opt.textContent = p.name + ' (' + p.case_count + ' cases)';
           packSel.appendChild(opt);
         });
-      } catch { /* silent - panel usable without config */ }
+      } catch { /* silent — panel usable without config */ }
     }
 
     document.getElementById('btn-load').addEventListener('click', load);
