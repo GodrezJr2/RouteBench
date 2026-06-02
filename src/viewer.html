@@ -154,6 +154,7 @@
       var children = Array.prototype.slice.call(arguments, 2);
       if (opts) {
         if (opts.class) elem.className = opts.class;
+        if (opts.id) elem.id = opts.id;
         if (opts.style) elem.style.cssText = opts.style;
         if (opts.open) elem.open = true;
         if (opts.title) elem.title = opts.title;
