@@ -143,9 +143,9 @@ test('renderMarkdownReport includes Per-Category Routing section', async () => {
   assert.ok(md.includes('| Category | Primary |'));
 });
 
-test('phase1 benchmark pack has 36 cases across six MVP categories', () => {
+test('phase1 benchmark pack has 38 cases across six MVP categories', () => {
   const pack = JSON.parse(readFileSync('benchmarks/phase1.json', 'utf8'));
-  assert.equal(pack.cases.length, 36);
+  assert.equal(pack.cases.length, 38);
   const cats = {};
   for (const c of pack.cases) cats[c.metadata.category] = (cats[c.metadata.category] || 0) + 1;
   assert.deepEqual(Object.keys(cats).sort(), [
@@ -157,7 +157,7 @@ test('phase1 benchmark pack has 36 cases across six MVP categories', () => {
     'summarization_quality',
   ]);
   // every case has a known scoring type and an id
-  const validScoring = new Set(['exact', 'json_schema', 'contains', 'prompt_injection']);
+  const validScoring = new Set(['exact', 'json_schema', 'contains', 'prompt_injection', 'code_unit_test']);
   for (const c of pack.cases) {
     assert.ok(c.id, 'case missing id');
     assert.ok(validScoring.has(c.scoring), `bad scoring: ${c.scoring}`);

@@ -36,6 +36,39 @@ test('penalizes invalid JSON output', () => {
   assert.equal(result.reason, 'output is not valid JSON');
 });
 
+test('code_unit_test: all tests pass on a correct function', () => {
+  const testCase = { scoring: 'code_unit_test', expected: { entry: 'square', cases: [{ args: [3], returns: 9 }, { args: [0], returns: 0 }] } };
+  const r = scoreOutput('function square(n){ return n*n; }', testCase);
+  assert.equal(r.score, 100);
+  assert.equal(r.passed, true);
+});
+
+test('code_unit_test: extracts code from a fenced block', () => {
+  const testCase = { scoring: 'code_unit_test', expected: { entry: 'sum', cases: [{ args: [2, 3], returns: 5 }] } };
+  const r = scoreOutput('```js\nfunction sum(a,b){ return a+b; }\n```', testCase);
+  assert.equal(r.score, 100);
+});
+
+test('code_unit_test: partial credit when some cases fail', () => {
+  const testCase = { scoring: 'code_unit_test', expected: { entry: 'square', cases: [{ args: [3], returns: 9 }, { args: [4], returns: 16 }, { args: [5], returns: 999 }] } };
+  const r = scoreOutput('function square(n){ return n*n; }', testCase);
+  assert.equal(r.score, 67); // 2/3
+  assert.equal(r.passed, false);
+});
+
+test('code_unit_test: broken code scores 0, does not throw', () => {
+  const testCase = { scoring: 'code_unit_test', expected: { entry: 'square', cases: [{ args: [3], returns: 9 }] } };
+  const r = scoreOutput('function notSquare(n){ return n; }', testCase);
+  assert.equal(r.score, 0);
+});
+
+test('code_unit_test: infinite loop is killed by timeout, scores 0', () => {
+  const testCase = { scoring: 'code_unit_test', expected: { entry: 'loop', cases: [{ args: [], returns: 1 }] } };
+  const r = scoreOutput('function loop(){ while(true){} }', testCase);
+  assert.equal(r.score, 0);
+  assert.match(r.reason, /did not run|unit tests passed/);
+});
+
 test('aggregates model results with latency and error rate', () => {
   const results = [
     { model: 'fast-good', score: 100, latency_ms: 100, status: 'completed' },

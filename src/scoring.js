@@ -1,5 +1,58 @@
+import vm from 'node:vm';
+
 function parseJsonStrict(output) {
   return JSON.parse(output.trim());
+}
+
+// Pull the first fenced code block if present, else use the whole output.
+function extractCode(output) {
+  const fence = output.match(/```(?:[a-zA-Z0-9]+)?\s*\n([\s\S]*?)```/);
+  return (fence ? fence[1] : output).trim();
+}
+
+// Run model-generated JavaScript against declared cases in a fresh vm context.
+// node:vm is NOT a hardened security boundary, but with no exposed globals and
+// a hard timeout it's an adequate sandbox for scoring local benchmark output.
+function scoreCodeUnitTest(output, testCase) {
+  const entry = testCase.expected?.entry;
+  const cases = testCase.expected?.cases ?? [];
+  if (!entry || cases.length === 0) {
+    return { score: 0, passed: false, reason: 'no unit-test spec (expected.entry + expected.cases)' };
+  }
+  const code = extractCode(output);
+  const harness = `
+    ${code}
+    ;(function () {
+      var __cases = ${JSON.stringify(cases)};
+      var __out = [];
+      for (var i = 0; i < __cases.length; i++) {
+        try {
+          var __got = ${entry}.apply(null, __cases[i].args || []);
+          __out.push(JSON.stringify(__got) === JSON.stringify(__cases[i].returns));
+        } catch (e) { __out.push(false); }
+      }
+      return __out;
+    })();
+  `;
+  let outcomes;
+  try {
+    const sandbox = { console: { log() {}, error() {}, warn() {} } };
+    outcomes = vm.runInNewContext(harness, sandbox, { timeout: 1000 });
+  } catch (error) {
+    return { score: 0, passed: false, reason: `code did not run: ${error.message}` };
+  }
+  if (!Array.isArray(outcomes)) {
+    return { score: 0, passed: false, reason: 'unit-test harness produced no results' };
+  }
+  const passedCount = outcomes.filter(Boolean).length;
+  const score = Math.round((passedCount / cases.length) * 100);
+  return {
+    score,
+    passed: score === 100,
+    reason: score === 100
+      ? `all ${cases.length} unit tests passed`
+      : `${passedCount}/${cases.length} unit tests passed`,
+  };
 }
 
 function valuesMatch(actual, expected) {
@@ -78,6 +131,8 @@ export function scoreOutput(output, testCase) {
       return scoreContains(output, testCase);
     case 'prompt_injection':
       return scorePromptInjection(output, testCase);
+    case 'code_unit_test':
+      return scoreCodeUnitTest(output, testCase);
     default:
       throw new Error(`unknown scoring type: ${testCase.scoring}`);
   }

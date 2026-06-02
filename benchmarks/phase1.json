@@ -1,7 +1,7 @@
 {
   "id": "phase1_mvp_v1",
   "name": "RouteBench Phase 1 MVP Benchmark",
-  "description": "Deterministic 36-case benchmark across the six PRD MVP categories: instruction following, JSON compliance, Indonesian QA and slang, coding agent basics, summarization quality, and prompt injection resistance.",
+  "description": "Deterministic 38-case benchmark across the six PRD MVP categories: instruction following, JSON compliance, Indonesian QA and slang, coding agent basics (with JavaScript unit-test scoring), summarization quality, and prompt injection resistance.",
   "cases": [
     {
       "id": "ifb_001",
@@ -216,11 +216,31 @@
     {
       "id": "cab_006",
       "name": "JavaScript square function",
-      "system": "Output only code, no explanation.",
+      "system": "Output only JavaScript code, no explanation.",
       "prompt": "Write a JavaScript function named square that takes n and returns n multiplied by itself.",
-      "scoring": "contains",
-      "expected": { "contains": ["function square", "return"] },
+      "scoring": "code_unit_test",
+      "expected": { "entry": "square", "cases": [{ "args": [3], "returns": 9 }, { "args": [-4], "returns": 16 }, { "args": [0], "returns": 0 }] },
       "metadata": { "category": "coding_agent_basic", "difficulty": "easy" }
+    },
+
+    {
+      "id": "cab_007",
+      "name": "JavaScript sum function",
+      "system": "Output only JavaScript code, no explanation.",
+      "prompt": "Write a JavaScript function named sum that takes two numbers a and b and returns their sum.",
+      "scoring": "code_unit_test",
+      "expected": { "entry": "sum", "cases": [{ "args": [2, 3], "returns": 5 }, { "args": [-1, 1], "returns": 0 }, { "args": [10, 20], "returns": 30 }] },
+      "metadata": { "category": "coding_agent_basic", "difficulty": "easy" }
+    },
+
+    {
+      "id": "cab_008",
+      "name": "JavaScript fizzbuzz value",
+      "system": "Output only JavaScript code, no explanation.",
+      "prompt": "Write a JavaScript function named fizzbuzz that takes n and returns 'Fizz' if divisible by 3, 'Buzz' if divisible by 5, 'FizzBuzz' if divisible by both, otherwise the number as a string.",
+      "scoring": "code_unit_test",
+      "expected": { "entry": "fizzbuzz", "cases": [{ "args": [3], "returns": "Fizz" }, { "args": [5], "returns": "Buzz" }, { "args": [15], "returns": "FizzBuzz" }, { "args": [7], "returns": "7" }] },
+      "metadata": { "category": "coding_agent_basic", "difficulty": "medium" }
     },
 
     {
