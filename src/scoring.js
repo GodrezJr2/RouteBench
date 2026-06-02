@@ -83,6 +83,65 @@ export function scoreOutput(output, testCase) {
   }
 }
 
+export function aggregateByCategory(results) {
+  const cats = new Map();
+  for (const result of results) {
+    const cat = result.category || 'uncategorized';
+    if (!cats.has(cat)) cats.set(cat, new Map());
+    const models = cats.get(cat);
+    if (!models.has(result.model)) models.set(result.model, []);
+    models.get(result.model).push(result);
+  }
+
+  const out = {};
+  for (const [cat, models] of cats) {
+    const modelStats = {};
+    for (const [model, rows] of models) {
+      const count = rows.length;
+      const scoreSum = rows.reduce((sum, r) => sum + Number(r.score ?? 0), 0);
+      const latencySum = rows.reduce((sum, r) => sum + Number(r.latency_ms ?? 0), 0);
+      const errorCount = rows.filter((r) => r.status !== 'completed').length;
+      modelStats[model] = {
+        model,
+        category: cat,
+        test_count: count,
+        avg_score: Math.round(scoreSum / count),
+        avg_latency_ms: Math.round(latencySum / count),
+        error_rate: Number((errorCount / count).toFixed(4)),
+      };
+    }
+    out[cat] = { models: modelStats };
+  }
+  return out;
+}
+
+export function recommendByCategory(categoryAggregate) {
+  const rules = [];
+  for (const [category, data] of Object.entries(categoryAggregate)) {
+    const ranked = Object.values(data.models).sort(
+      (a, b) =>
+        b.avg_score - a.avg_score ||
+        a.error_rate - b.error_rate ||
+        a.avg_latency_ms - b.avg_latency_ms,
+    );
+    const primary = ranked[0] ?? null;
+    rules.push({
+      category,
+      primary_model: primary?.model ?? null,
+      fallback_models: ranked.slice(1).map((m) => m.model),
+      best_score: primary?.avg_score ?? null,
+      avg_latency_ms: primary?.avg_latency_ms ?? null,
+      error_rate: primary?.error_rate ?? null,
+      reason: primary
+        ? `Best for ${category}: ${primary.model} (score ${primary.avg_score}, ${Math.round(primary.error_rate * 100)}% errors, ${primary.avg_latency_ms}ms)`
+        : `No data for ${category}`,
+      ranked_models: ranked,
+    });
+  }
+  rules.sort((a, b) => a.category.localeCompare(b.category));
+  return rules;
+}
+
 export function aggregateResults(results) {
   const groups = new Map();
   for (const result of results) {

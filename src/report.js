@@ -50,6 +50,21 @@ export function renderMarkdownReport(result) {
   });
   lines.push('');
 
+  const categoryRouting = result.category_routing ?? [];
+  if (categoryRouting.length > 0) {
+    lines.push('## Per-Category Routing', '');
+    lines.push('Best model per task category. Route each task type to its top model for task-based routing.', '');
+    lines.push('| Category | Primary | Score | Error Rate | Avg Latency | Fallbacks |');
+    lines.push('|---|---|---:|---:|---:|---|');
+    for (const cat of categoryRouting) {
+      const fallbacks = (cat.fallback_models ?? []).map((m) => `\`${m}\``).join(' → ') || 'none';
+      lines.push(
+        `| ${escapeCell(cat.category)} | \`${escapeCell(cat.primary_model ?? 'none')}\` | ${cat.best_score ?? '-'} | ${cat.error_rate != null ? pct(cat.error_rate) : '-'} | ${cat.avg_latency_ms ?? '-'}ms | ${fallbacks} |`,
+      );
+    }
+    lines.push('');
+  }
+
   lines.push('## Category Breakdown', '');
   lines.push('| Model | Category | Avg Score | Failures | Cases |');
   lines.push('|---|---|---:|---:|---:|');

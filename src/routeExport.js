@@ -16,6 +16,7 @@ export function validateRouteExport(json) {
 
 export function renderRouteExport(result, { baseUrl = '' } = {}) {
   const ranked = result.recommendation.ranked_models ?? [];
+  const categoryRouting = result.category_routing ?? [];
   return {
     schema_version: 'routebench.routing.v1',
     generated_at: result.finished_at,
@@ -30,6 +31,15 @@ export function renderRouteExport(result, { baseUrl = '' } = {}) {
       avg_latency_ms: model.avg_latency_ms,
       error_rate: model.error_rate,
       reason: [model.score_reason, model.latency_reason, model.error_rate_reason].filter(Boolean).join(' '),
+    })),
+    category_rules: categoryRouting.map((cat) => ({
+      category: cat.category,
+      primary_model: cat.primary_model,
+      fallback_models: cat.fallback_models,
+      route_score: cat.best_score,
+      avg_latency_ms: cat.avg_latency_ms,
+      error_rate: cat.error_rate,
+      reason: cat.reason,
     })),
   };
 }

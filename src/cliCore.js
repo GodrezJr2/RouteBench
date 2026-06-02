@@ -147,7 +147,7 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
   const envConf = loadConfigFromEnv(env);
   const config = validateConfig(mergeConfigs(fileConf, envConf));
   const client = createOpenAICompatibleClient(config);
-  const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client, modelCosts: config.modelCosts });
+  const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client, modelCosts: config.modelCosts, concurrency: config.concurrency });
   const redact = [config.apiKey];
   await writeJson(outputPath, result, { redact });
   if (reportPath) await writeReportFromResult({ result, outputPath: reportPath, redact });

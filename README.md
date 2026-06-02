@@ -67,6 +67,15 @@ Full benchmark with report and routing export:
 npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
 ```
 
+Use the richer 36-case Phase 1 pack (six PRD MVP categories incl. coding) and run requests in parallel:
+
+```powershell
+$env:ROUTEBENCH_CONCURRENCY = "6"
+npm run bench -- --benchmark benchmarks/phase1.json --output results/results.json --report results/report.md --route-output results/routing.json
+```
+
+The routing export includes `category_rules`: the best model to route each task type to (task-based routing, not one model for everything).
+
 Open the local dashboard (serves `results/` on localhost:3001):
 
 ```powershell
@@ -123,9 +132,10 @@ Use only for trusted local endpoints. Prefer trusting the cert via OS/Node trust
 | `api_key` | API key — also accepted from `ROUTEBENCH_API_KEY` env var |
 | `models` | Array of model IDs to benchmark |
 | `timeout_ms` | Per-request timeout in ms (default: 30000) |
+| `concurrency` | Parallel benchmark requests (default: 4) |
 | `model_costs` | Optional per-model cost config for cost estimation |
 
-Environment variables (`ROUTEBENCH_BASE_URL`, `ROUTEBENCH_API_KEY`, `ROUTEBENCH_MODELS`, `ROUTEBENCH_TIMEOUT_MS`) override config file values. `OPENAI_BASE_URL` and `OPENAI_API_KEY` also work as fallbacks.
+Environment variables (`ROUTEBENCH_BASE_URL`, `ROUTEBENCH_API_KEY`, `ROUTEBENCH_MODELS`, `ROUTEBENCH_TIMEOUT_MS`, `ROUTEBENCH_CONCURRENCY`) override config file values. `OPENAI_BASE_URL` and `OPENAI_API_KEY` also work as fallbacks.
 
 ---
 

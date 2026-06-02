@@ -73,7 +73,7 @@ async function tryLoadConfig() {
     return mergeConfigs(fileConf, envConf);
   } catch {
     const envConf = loadConfigFromEnv();
-    return { baseUrl: envConf.baseUrl, apiKey: envConf.apiKey, models: envConf.models, timeoutMs: envConf.timeoutMs || 30000, modelCosts: {} };
+    return { baseUrl: envConf.baseUrl, apiKey: envConf.apiKey, models: envConf.models, timeoutMs: envConf.timeoutMs || 30000, concurrency: envConf.concurrency || 4, modelCosts: {} };
   }
 }
 
@@ -213,6 +213,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
               cases: benchmarkData.cases,
               client,
               modelCosts: conf.modelCosts || {},
+              concurrency: conf.concurrency || 4,
               onProgress(done, total) { if (run) run.progress = { done, total }; },
             });
             await mkdir(resultsDir, { recursive: true });

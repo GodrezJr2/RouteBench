@@ -1,4 +1,10 @@
-import { aggregateResults, recommendModel, scoreOutput } from './scoring.js';
+import {
+  aggregateResults,
+  recommendModel,
+  scoreOutput,
+  aggregateByCategory,
+  recommendByCategory,
+} from './scoring.js';
 
 function calcCost(usage, costs) {
   if (!usage || !costs) return null;
@@ -8,115 +14,132 @@ function calcCost(usage, costs) {
   return Number(cost.toFixed(6));
 }
 
-export async function runBenchmark({ models, cases, client, now = () => Date.now(), modelCosts = {}, onProgress }) {
+// Run a single model/case pair and return one result row.
+async function runCase({ model, testCase, client, now, modelCosts }) {
+  const category = testCase.metadata?.category ?? 'uncategorized';
+  const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category };
+  const start = now();
+
+  let response;
+  try {
+    response = await client({ model, testCase });
+  } catch (error) {
+    return {
+      ...base,
+      status: 'provider_error',
+      output: '',
+      score: 0,
+      passed: false,
+      score_reason: 'model request failed',
+      latency_ms: Math.max(0, now() - start),
+      usage: null,
+      estimated_cost_usd: null,
+      error_type: error.type ?? 'unknown_error',
+      error_status: error.status ?? null,
+      error_body_preview: error.body_preview ?? null,
+      error_message: `model ${model} failed case ${testCase.id}: ${error.message ?? 'unknown model request error'}`,
+    };
+  }
+
+  const latencyMs = Math.max(0, now() - start);
+
+  if (!response.output || response.output.trim() === '') {
+    return {
+      ...base,
+      status: 'model_failure',
+      output: '',
+      score: 0,
+      passed: false,
+      score_reason: 'model returned empty output',
+      latency_ms: latencyMs,
+      usage: response.usage ?? null,
+      estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
+      error_type: 'empty_output',
+      error_status: null,
+      error_body_preview: null,
+      error_message: `model ${model} returned empty output for case ${testCase.id}`,
+    };
+  }
+
+  let scored;
+  try {
+    scored = scoreOutput(response.output, testCase);
+  } catch (scorerError) {
+    return {
+      ...base,
+      status: 'scorer_failure',
+      output: response.output,
+      score: 0,
+      passed: false,
+      score_reason: `scorer threw: ${scorerError.message}`,
+      latency_ms: latencyMs,
+      usage: response.usage ?? null,
+      estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
+      error_type: 'scorer_exception',
+      error_status: null,
+      error_body_preview: null,
+      error_message: `scorer failed for model ${model} case ${testCase.id}: ${scorerError.message}`,
+    };
+  }
+
+  return {
+    ...base,
+    status: 'completed',
+    output: response.output,
+    score: scored.score,
+    passed: scored.passed,
+    score_reason: scored.reason,
+    latency_ms: latencyMs,
+    usage: response.usage ?? null,
+    estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
+  };
+}
+
+export async function runBenchmark({
+  models,
+  cases,
+  client,
+  now = () => Date.now(),
+  modelCosts = {},
+  onProgress,
+  concurrency = 4,
+}) {
   const startedAt = new Date().toISOString();
-  const results = [];
-  const totalCases = models.length * cases.length;
-  let doneCases = 0;
-  function tick() { doneCases += 1; if (onProgress) onProgress(doneCases, totalCases); }
 
-  for (const model of models) {
-    for (const testCase of cases) {
-      const start = now();
-      let response;
-      try {
-        response = await client({ model, testCase });
-      } catch (error) {
-        const latencyMs = Math.max(0, now() - start);
-        const baseMessage = error.message ?? 'unknown model request error';
-        results.push({
-          model,
-          test_case_id: testCase.id,
-          test_case_name: testCase.name,
-          category: testCase.metadata?.category ?? 'uncategorized',
-          status: 'provider_error',
-          output: '',
-          score: 0,
-          passed: false,
-          score_reason: 'model request failed',
-          latency_ms: latencyMs,
-          usage: null,
-          estimated_cost_usd: null,
-          error_type: error.type ?? 'unknown_error',
-          error_status: error.status ?? null,
-          error_body_preview: error.body_preview ?? null,
-          error_message: `model ${model} failed case ${testCase.id}: ${baseMessage}`,
-        });
-        tick();
-        continue;
-      }
+  // Build the full task list; `order` keeps the output stable (model-major,
+  // case order) regardless of completion order under parallel execution.
+  const tasks = [];
+  models.forEach((model) => {
+    cases.forEach((testCase) => {
+      tasks.push({ model, testCase, order: tasks.length });
+    });
+  });
 
-      const latencyMs = Math.max(0, now() - start);
+  const results = new Array(tasks.length);
+  const total = tasks.length;
+  let done = 0;
+  let next = 0;
 
-      if (!response.output || response.output.trim() === '') {
-        results.push({
-          model,
-          test_case_id: testCase.id,
-          test_case_name: testCase.name,
-          category: testCase.metadata?.category ?? 'uncategorized',
-          status: 'model_failure',
-          output: '',
-          score: 0,
-          passed: false,
-          score_reason: 'model returned empty output',
-          latency_ms: latencyMs,
-          usage: response.usage ?? null,
-          estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
-          error_type: 'empty_output',
-          error_status: null,
-          error_body_preview: null,
-          error_message: `model ${model} returned empty output for case ${testCase.id}`,
-        });
-        tick();
-        continue;
-      }
-
-      let scored;
-      try {
-        scored = scoreOutput(response.output, testCase);
-      } catch (scorerError) {
-        results.push({
-          model,
-          test_case_id: testCase.id,
-          test_case_name: testCase.name,
-          category: testCase.metadata?.category ?? 'uncategorized',
-          status: 'scorer_failure',
-          output: response.output,
-          score: 0,
-          passed: false,
-          score_reason: `scorer threw: ${scorerError.message}`,
-          latency_ms: latencyMs,
-          usage: response.usage ?? null,
-          estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
-          error_type: 'scorer_exception',
-          error_status: null,
-          error_body_preview: null,
-          error_message: `scorer failed for model ${model} case ${testCase.id}: ${scorerError.message}`,
-        });
-        tick();
-        continue;
-      }
-
-      results.push({
-        model,
-        test_case_id: testCase.id,
-        test_case_name: testCase.name,
-        category: testCase.metadata?.category ?? 'uncategorized',
-        status: 'completed',
-        output: response.output,
-        score: scored.score,
-        passed: scored.passed,
-        score_reason: scored.reason,
-        latency_ms: latencyMs,
-        usage: response.usage ?? null,
-        estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
-      });
-      tick();
+  async function worker() {
+    while (next < tasks.length) {
+      const task = tasks[next];
+      next += 1;
+      results[task.order] = await runCase({ model: task.model, testCase: task.testCase, client, now, modelCosts });
+      done += 1;
+      if (onProgress) onProgress(done, total);
     }
   }
 
+  const limit = Math.max(1, Math.min(Math.floor(concurrency) || 1, tasks.length || 1));
+  const workers = [];
+  for (let i = 0; i < limit; i += 1) workers.push(worker());
+  await Promise.all(workers);
+
   const aggregate = aggregateResults(results);
   const recommendation = recommendModel(aggregate);
+  const categoryAggregate = aggregateByCategory(results);
+  const categoryRouting = recommendByCategory(categoryAggregate);
+
   return {
     schema_version: 'routebench.phase0.v1',
     started_at: startedAt,
@@ -126,5 +149,7 @@ export async function runBenchmark({ models, cases, client, now = () => Date.now
     results,
     aggregate,
     recommendation,
+    category_aggregate: categoryAggregate,
+    category_routing: categoryRouting,
   };
 }

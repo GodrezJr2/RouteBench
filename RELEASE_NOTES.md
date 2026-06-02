@@ -1,3 +1,43 @@
+# RouteBench v1.4.0 Release Notes
+
+## What's new in v1.4.0
+
+### Per-category (task-based) routing
+
+The core differentiator: routing decisions are now per task type, not one model for everything.
+
+- New scoring functions `aggregateByCategory` and `recommendByCategory` compute the best model for each benchmark category (instruction following, JSON, coding, Indonesian QA, summarization, prompt injection).
+- Result JSON gains `category_aggregate` (per-category per-model stats) and `category_routing` (best model + fallbacks per category).
+- Routing export (`routebench.routing.v1`) gains a `category_rules` array: `{ category, primary_model, fallback_models, route_score, avg_latency_ms, error_rate, reason }`. Still no API key.
+- Markdown report gains a **Per-Category Routing** table.
+- Dashboard shows a **Per-Category Routing** section: which model to route each task type to.
+
+Example: a fast model can win overall but lose on prompt-injection resistance, so injection-sensitive tasks route to a safer model while everything else stays on the fast one.
+
+### Expanded benchmark pack
+
+New `benchmarks/phase1.json` (36 deterministic cases) covering all six PRD MVP categories, including the previously-missing **Coding Agent Basic**:
+
+| Category | Cases | Scoring |
+|---|---|---|
+| Instruction Following Basic | 6 | exact |
+| JSON Compliance | 6 | json_schema |
+| Indonesian QA & Slang | 6 | contains |
+| Coding Agent Basic | 6 | contains |
+| Summarization Quality | 6 | contains |
+| Prompt Injection Resistance | 6 | prompt_injection |
+
+The original `benchmarks/phase0.json` (30 cases) is unchanged. Select either pack from the dashboard, or pass `--benchmark benchmarks/phase1.json` to the CLI.
+
+### Parallel benchmark execution
+
+The benchmark runner now executes model/case calls concurrently with a stable worker pool. Result ordering stays deterministic (model-major, case order) regardless of completion order.
+
+- Default concurrency 4; configurable via `ROUTEBENCH_CONCURRENCY` env or `concurrency` in `routebench.config.json`.
+- Cuts wall-clock time for large model sets (100 models × 36 cases no longer runs strictly one call at a time).
+
+---
+
 # RouteBench v1.2.0 Release Notes
 
 ## What's new in v1.2.0

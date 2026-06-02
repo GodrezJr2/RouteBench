@@ -332,6 +332,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
     <div id="content" style="display:none">
       <div id="sec-rec"     class="section"></div>
       <div id="sec-models"  class="section"></div>
+      <div id="sec-catroute" class="section"></div>
       <div id="sec-cats"    class="section"></div>
       <div id="sec-failed"  class="section"></div>
       <div id="sec-routing" class="section"></div>
@@ -698,7 +699,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         ]);
         var resultData = results[0], routingData = results[1], compareData = results[2];
         if (resultData) renderResult(resultData);
-        else ['sec-rec', 'sec-models', 'sec-cats', 'sec-failed'].forEach(function(id) { document.getElementById(id).replaceChildren(); });
+        else ['sec-rec', 'sec-models', 'sec-catroute', 'sec-cats', 'sec-failed'].forEach(function(id) { document.getElementById(id).replaceChildren(); });
         if (routingData) renderRouting(routingData);
         else document.getElementById('sec-routing').replaceChildren();
         if (compareData) renderCompare(compareData);
@@ -763,6 +764,25 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       }
       mount('sec-models', [h('h2', null, 'Ranked Models'),
         makeSortableTable(modelCols, ranked, { sortKey: 'recommendation_score', sortDir: 'desc' })]);
+
+      var catRouting = data.category_routing || [];
+      if (catRouting.length > 0) {
+        var crCols = [
+          { key: 'category', label: 'Task Category', get: function(r) { return r.category; }, render: function(r) { return badge('bb', r.category); } },
+          { key: 'primary_model', label: 'Route To', get: function(r) { return r.primary_model || ''; }, render: function(r) { return r.primary_model ? h('strong', null, r.primary_model) : txt('—'); } },
+          { key: 'best_score', label: 'Score', numeric: true, get: function(r) { return r.best_score; }, render: function(r) { return r.best_score != null ? span(scoreColor(r.best_score), String(r.best_score)) : txt('—'); } },
+          { key: 'error_rate', label: 'Error Rate', numeric: true, get: function(r) { return r.error_rate; }, render: function(r) { return r.error_rate != null ? span(errColor(r.error_rate), pct(r.error_rate)) : txt('—'); } },
+          { key: 'avg_latency_ms', label: 'Latency', numeric: true, get: function(r) { return r.avg_latency_ms; }, render: function(r) { return r.avg_latency_ms != null ? ms(r.avg_latency_ms) : txt('—'); } },
+          { key: 'fallbacks', label: 'Fallbacks', sortable: false, get: function(r) { return (r.fallback_models || []).join(', '); }, render: function(r) { return makeFallbackList(r.fallback_models); }, tdStyle: 'font-size:11px;color:var(--t3)' },
+        ];
+        mount('sec-catroute', [
+          h('h2', null, 'Per-Category Routing'),
+          h('p', { class: 'rec-reason', style: 'margin-bottom:4px' }, 'Best model for each task type. Route by task category instead of one model for everything.'),
+          makeSortableTable(crCols, catRouting, { sortKey: 'category', sortDir: 'asc' }),
+        ]);
+      } else {
+        document.getElementById('sec-catroute').replaceChildren();
+      }
 
       var cats = categoryBreakdown(data.results || []);
       var catCols = [
