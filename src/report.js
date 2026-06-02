@@ -40,12 +40,14 @@ export function renderMarkdownReport(result) {
   lines.push('', result.recommendation.reason, '');
 
   lines.push('## Ranked Models', '');
-  lines.push('| Rank | Model | Route Score | Overall | Avg Latency | Error Rate | Reasons |');
-  lines.push('|---:|---|---:|---:|---:|---:|---|');
+  lines.push('| Rank | Model | Route Score | Overall | Avg Latency | P95 Latency | Error Rate | Est. Cost | Reasons |');
+  lines.push('|---:|---|---:|---:|---:|---:|---:|---:|---|');
   result.recommendation.ranked_models.forEach((model, index) => {
     const reasons = [model.score_reason, model.latency_reason, model.error_rate_reason].filter(Boolean).join(' ');
+    const p95 = model.p95_latency_ms != null ? `${model.p95_latency_ms}ms` : '-';
+    const cost = model.total_estimated_cost_usd != null ? `$${model.total_estimated_cost_usd.toFixed(6)}` : '-';
     lines.push(
-      `| ${index + 1} | ${escapeCell(model.model)} | ${model.recommendation_score} | ${model.overall_score} | ${model.avg_latency_ms}ms | ${pct(model.error_rate)} | ${escapeCell(reasons)} |`,
+      `| ${index + 1} | ${escapeCell(model.model)} | ${model.recommendation_score} | ${model.overall_score} | ${model.avg_latency_ms}ms | ${p95} | ${pct(model.error_rate)} | ${cost} | ${escapeCell(reasons)} |`,
     );
   });
   lines.push('');

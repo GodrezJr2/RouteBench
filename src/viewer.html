@@ -744,8 +744,11 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
           makeCard('Avg Latency',  ms(primary.avg_latency_ms),                     'per request',       'b'),
           makeCard('Error Rate',   pct(primary.error_rate),                         'failed requests',   errColor(primary.error_rate)),
         ];
+        if (primary.p95_latency_ms != null) {
+          cards.push(makeCard('P95 Latency', ms(primary.p95_latency_ms), 'tail latency', 'b'));
+        }
         if (primary.total_estimated_cost_usd != null) {
-          cards.push(makeCard('Total Cost', '$' + primary.total_estimated_cost_usd, 'all test cases', 'm'));
+          cards.push(makeCard('Total Cost', '$' + primary.total_estimated_cost_usd.toFixed(6), 'all test cases', 'm'));
         }
       }
       mount('sec-rec', [actions, recBox, cards.length > 0 ? h('div', { class: 'cards', style: 'margin-top:12px' }, cards) : null]);
@@ -756,6 +759,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         { key: 'recommendation_score', label: 'Route Score', numeric: true, get: function(m) { return m.recommendation_score; }, render: function(m) { return span(scoreColor(m.recommendation_score), String(m.recommendation_score)); } },
         { key: 'overall_score', label: 'Overall', numeric: true, get: function(m) { return m.overall_score; }, render: function(m) { return span(scoreColor(m.overall_score), String(m.overall_score)); } },
         { key: 'avg_latency_ms', label: 'Avg Latency', numeric: true, get: function(m) { return m.avg_latency_ms; }, render: function(m) { return ms(m.avg_latency_ms); } },
+        { key: 'p95_latency_ms', label: 'P95 Latency', numeric: true, get: function(m) { return m.p95_latency_ms; }, render: function(m) { return m.p95_latency_ms != null ? ms(m.p95_latency_ms) : txt('—'); } },
         { key: 'error_rate', label: 'Error Rate', numeric: true, get: function(m) { return m.error_rate; }, render: function(m) { return span(errColor(m.error_rate), pct(m.error_rate)); } },
         { key: 'test_count', label: 'Cases', numeric: true, get: function(m) { return m.test_count; }, render: function(m) { return td0(m.test_count); }, tdStyle: 'color:var(--t3)' },
       ];

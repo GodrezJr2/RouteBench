@@ -53,6 +53,42 @@ test('aggregates model results with latency and error rate', () => {
   assert.equal(aggregate.models['slow-bad'].error_rate, 0.5);
 });
 
+test('aggregate computes p95 latency', () => {
+  const results = Array.from({ length: 20 }, (_, i) => ({
+    model: 'm', score: 100, latency_ms: (i + 1) * 100, status: 'completed',
+  }));
+  // latencies 100..2000; p95 → index ceil(0.95*20)-1 = 18 → 1900
+  const aggregate = aggregateResults(results);
+  assert.equal(aggregate.models.m.p95_latency_ms, 1900);
+  assert.equal(aggregate.models.m.avg_latency_ms, 1050);
+});
+
+test('recommendation folds in cost when every model has pricing', () => {
+  const aggregate = {
+    models: {
+      pricey: { model: 'pricey', overall_score: 86, avg_latency_ms: 500, p95_latency_ms: 600, error_rate: 0, total_estimated_cost_usd: 0.05 },
+      cheap:  { model: 'cheap',  overall_score: 84, avg_latency_ms: 500, p95_latency_ms: 600, error_rate: 0, total_estimated_cost_usd: 0.001 },
+    },
+  };
+  const rec = recommendModel(aggregate);
+  // near-equal quality/latency/reliability, but 'cheap' is 50x cheaper → cost tips it
+  assert.equal(rec.primary_model, 'cheap');
+  assert.match(rec.reason, /Estimated cost \$/);
+  assert.ok(rec.ranked_models[0].cost_reason);
+});
+
+test('cost is ignored when pricing is missing for any model', () => {
+  const aggregate = {
+    models: {
+      a: { model: 'a', overall_score: 90, avg_latency_ms: 500, error_rate: 0, total_estimated_cost_usd: 0.001 },
+      b: { model: 'b', overall_score: 88, avg_latency_ms: 500, error_rate: 0, total_estimated_cost_usd: null },
+    },
+  };
+  const rec = recommendModel(aggregate);
+  assert.equal(rec.primary_model, 'a'); // pure quality wins; no cost term
+  assert.doesNotMatch(rec.reason, /Estimated cost/);
+});
+
 test('recommends model using quality, reliability, and latency', () => {
   const aggregate = {
     models: {

@@ -154,6 +154,10 @@ export function aggregateResults(results) {
     const count = modelResults.length;
     const scoreSum = modelResults.reduce((sum, result) => sum + Number(result.score ?? 0), 0);
     const latencySum = modelResults.reduce((sum, result) => sum + Number(result.latency_ms ?? 0), 0);
+    const latencies = modelResults.map((result) => Number(result.latency_ms ?? 0)).sort((a, b) => a - b);
+    const p95 = latencies.length
+      ? latencies[Math.min(latencies.length - 1, Math.ceil(0.95 * latencies.length) - 1)]
+      : 0;
     const errorCount = modelResults.filter((result) => result.status !== 'completed').length;
     const costRows = modelResults.filter((result) => result.estimated_cost_usd != null);
     const totalCost = costRows.length > 0
@@ -164,6 +168,7 @@ export function aggregateResults(results) {
       test_count: count,
       overall_score: Math.round(scoreSum / count),
       avg_latency_ms: Math.round(latencySum / count),
+      p95_latency_ms: p95,
       error_rate: Number((errorCount / count).toFixed(4)),
       total_estimated_cost_usd: totalCost,
     };
@@ -172,11 +177,32 @@ export function aggregateResults(results) {
   return { models };
 }
 
-function recommendationScore(model) {
+// Latency uses p95 when available (tail latency matters more for routing than
+// the mean); falls back to the average for older result shapes.
+function latencyForScore(model) {
+  return model.p95_latency_ms ?? model.avg_latency_ms;
+}
+
+// Cheapest model in the run scores 100, priciest 0. Returns null when cost is
+// unknown so the formula can drop the cost term and renormalize.
+function costScore(model, ctx) {
+  if (!ctx || !ctx.costAvailable) return null;
+  const cost = model.total_estimated_cost_usd;
+  if (cost == null) return null;
+  if (ctx.maxCost === ctx.minCost) return 100;
+  return Math.round((100 * (ctx.maxCost - cost)) / (ctx.maxCost - ctx.minCost));
+}
+
+function recommendationScore(model, ctx) {
   const quality = model.overall_score;
   const reliability = (1 - model.error_rate) * 100;
-  const latency = Math.max(0, 100 - model.avg_latency_ms / 100);
-  return Math.round(quality * 0.65 + reliability * 0.25 + latency * 0.1);
+  const latency = Math.max(0, 100 - latencyForScore(model) / 100);
+  const cost = costScore(model, ctx);
+  if (cost == null) {
+    return Math.round(quality * 0.65 + reliability * 0.25 + latency * 0.1);
+  }
+  // Cost data present for every model: fold it in with a modest weight.
+  return Math.round(quality * 0.55 + reliability * 0.22 + latency * 0.13 + cost * 0.1);
 }
 
 function scoreReason(model) {
@@ -186,9 +212,10 @@ function scoreReason(model) {
 }
 
 function latencyReason(model) {
-  if (model.avg_latency_ms <= 2000) return `Fast average latency (${model.avg_latency_ms}ms).`;
-  if (model.avg_latency_ms <= 8000) return `Moderate average latency (${model.avg_latency_ms}ms).`;
-  return `Slow average latency (${model.avg_latency_ms}ms).`;
+  const p95 = model.p95_latency_ms != null ? ` p95 ${model.p95_latency_ms}ms.` : '';
+  if (model.avg_latency_ms <= 2000) return `Fast average latency (${model.avg_latency_ms}ms).${p95}`;
+  if (model.avg_latency_ms <= 8000) return `Moderate average latency (${model.avg_latency_ms}ms).${p95}`;
+  return `Slow average latency (${model.avg_latency_ms}ms).${p95}`;
 }
 
 function errorRateReason(model) {
@@ -198,14 +225,29 @@ function errorRateReason(model) {
   return `High error rate (${pct}%).`;
 }
 
+function costReason(model) {
+  const cost = model.total_estimated_cost_usd;
+  if (cost == null) return 'Cost unknown (no pricing configured).';
+  return `Estimated cost $${cost.toFixed(6)} for this run.`;
+}
+
 export function recommendModel(aggregate) {
-  const ranked = Object.values(aggregate.models)
+  const models = Object.values(aggregate.models);
+  const costs = models.map((m) => m.total_estimated_cost_usd).filter((c) => c != null);
+  const ctx = {
+    costAvailable: costs.length > 0 && costs.length === models.length,
+    minCost: costs.length ? Math.min(...costs) : null,
+    maxCost: costs.length ? Math.max(...costs) : null,
+  };
+
+  const ranked = models
     .map((model) => ({
       ...model,
-      recommendation_score: recommendationScore(model),
+      recommendation_score: recommendationScore(model, ctx),
       score_reason: scoreReason(model),
       latency_reason: latencyReason(model),
       error_rate_reason: errorRateReason(model),
+      cost_reason: costReason(model),
     }))
     .sort((a, b) => b.recommendation_score - a.recommendation_score || b.overall_score - a.overall_score);
 
@@ -215,7 +257,7 @@ export function recommendModel(aggregate) {
     primary_model: primary?.model ?? null,
     fallback_models: ranked.slice(1).map((model) => model.model),
     reason: primary
-      ? `Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}`
+      ? `Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}${ctx.costAvailable ? ' ' + primary.cost_reason : ''}`
       : 'No model results available.',
     ranked_models: ranked,
   };
