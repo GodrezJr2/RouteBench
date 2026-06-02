@@ -74,6 +74,14 @@ async function tryLoadConfig() {
   }
 }
 
+function redactText(text, values) {
+  let result = text;
+  for (const v of values) {
+    if (v && v.length >= 8) result = result.split(v).join('[REDACTED]');
+  }
+  return result;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -135,14 +143,17 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
     }
 
     if (url.pathname === '/api/discover' && req.method === 'POST') {
+      const body = await readBody(req);
       const conf = await tryLoadConfig();
-      if (!conf.baseUrl || !conf.apiKey) {
+      const baseUrl = (typeof body.base_url === 'string' && body.base_url.trim()) ? body.base_url.trim() : conf.baseUrl;
+      const apiKey = (typeof body.api_key === 'string' && body.api_key.trim()) ? body.api_key.trim() : conf.apiKey;
+      if (!baseUrl || !apiKey) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'endpoint not configured — set base_url and api_key in routebench.config.json' }));
+        res.end(JSON.stringify({ error: 'endpoint not configured — enter URL and API key above, or set them in routebench.config.json' }));
         return;
       }
       try {
-        const client = createModelsClient({ baseUrl: conf.baseUrl, apiKey: conf.apiKey, timeoutMs: conf.timeoutMs });
+        const client = createModelsClient({ baseUrl, apiKey, timeoutMs: conf.timeoutMs });
         const discovery = await client();
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(discovery));
@@ -175,6 +186,9 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
           return;
         }
 
+        const bodyBaseUrl = (typeof body.base_url === 'string' && body.base_url.trim()) ? body.base_url.trim() : null;
+        const bodyApiKey = (typeof body.api_key === 'string' && body.api_key.trim()) ? body.api_key.trim() : null;
+
         const runId = Date.now().toString();
         const totalCases = models.length * benchmarkData.cases.length;
         const outputPath = `${resultsDir}/run-${runId}.json`.replace(/\\/g, '/');
@@ -187,8 +201,10 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
           const run = runs.get(runId);
           try {
             const conf = await tryLoadConfig();
-            if (!conf.baseUrl || !conf.apiKey) throw new Error('endpoint not configured — set base_url and api_key in routebench.config.json');
-            const client = createOpenAICompatibleClient({ baseUrl: conf.baseUrl, apiKey: conf.apiKey, timeoutMs: conf.timeoutMs });
+            const baseUrl = bodyBaseUrl || conf.baseUrl;
+            const apiKey = bodyApiKey || conf.apiKey;
+            if (!baseUrl || !apiKey) throw new Error('endpoint not configured — enter URL and API key in the Run panel');
+            const client = createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs: conf.timeoutMs });
             const result = await runBenchmark({
               models,
               cases: benchmarkData.cases,
@@ -197,7 +213,8 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
               onProgress(done, total) { if (run) run.progress = { done, total }; },
             });
             await mkdir(resultsDir, { recursive: true });
-            await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+            const redactValues = [apiKey, conf.apiKey].filter(Boolean);
+            await writeFile(outputPath, redactText(`${JSON.stringify(result, null, 2)}\n`, redactValues), 'utf8');
             if (run) { run.status = 'done'; run.result_path = outputPath; }
           } catch (err) {
             if (run) { run.status = 'error'; run.error = err.message; }
