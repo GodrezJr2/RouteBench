@@ -1143,12 +1143,44 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       var body = document.getElementById('run-body');
       if (!body) return;
 
+      // Provider presets — auto-fill endpoint URL so users don't memorize /v1 paths.
+      // Local providers (Ollama/LM Studio) ignore the API key; we fill a dummy so
+      // the /api/discover key check passes.
+      var PROVIDER_PRESETS = [
+        { id: 'custom',     label: 'Custom / 9router',  url: '' },
+        { id: 'openai',     label: 'OpenAI',            url: 'https://api.openai.com/v1' },
+        { id: 'openrouter', label: 'OpenRouter',        url: 'https://openrouter.ai/api/v1' },
+        { id: 'groq',       label: 'Groq',              url: 'https://api.groq.com/openai/v1' },
+        { id: 'together',   label: 'Together AI',       url: 'https://api.together.xyz/v1' },
+        { id: 'deepseek',   label: 'DeepSeek',          url: 'https://api.deepseek.com/v1' },
+        { id: 'mistral',    label: 'Mistral',           url: 'https://api.mistral.ai/v1' },
+        { id: 'ollama',     label: 'Ollama (local)',    url: 'http://localhost:11434/v1', local: true },
+        { id: 'lmstudio',   label: 'LM Studio (local)', url: 'http://localhost:1234/v1', local: true },
+      ];
+
+      var provSel = h('select', { id: 'sel-provider', class: 'run-input' });
+      PROVIDER_PRESETS.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.id; opt.textContent = p.label;
+        provSel.appendChild(opt);
+      });
+
       var inpEndpoint = document.createElement('input');
       inpEndpoint.type = 'text'; inpEndpoint.className = 'run-input'; inpEndpoint.id = 'inp-endpoint';
       inpEndpoint.placeholder = 'https://router.example.com/v1';
       var inpApiKey = document.createElement('input');
       inpApiKey.type = 'password'; inpApiKey.className = 'run-input'; inpApiKey.id = 'inp-apikey';
       inpApiKey.placeholder = 'sk-…';
+
+      provSel.addEventListener('change', function() {
+        var p = PROVIDER_PRESETS.filter(function(x) { return x.id === provSel.value; })[0];
+        if (!p || p.id === 'custom') return;
+        inpEndpoint.value = p.url;
+        if (p.local) {
+          if (!inpApiKey.value) inpApiKey.value = p.id; // dummy key — local servers ignore it
+          if (discoverMsg) { discoverMsg.textContent = 'Local provider — API key not required.'; discoverMsg.className = 'run-msg'; }
+        }
+      });
 
       var discoverMsg = h('span', { class: 'run-msg', id: 'discover-msg' }, '');
       var btnDiscover = h('button', { class: 'btn', id: 'btn-discover' }, 'Discover Models');
@@ -1174,6 +1206,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
 
       body.replaceChildren(
         h('div', { class: 'cfg-row' },
+          span('cfg-key', 'Provider:'), provSel
+        ),
+        h('div', { class: 'cfg-row' },
           span('cfg-key', 'Endpoint:'), inpEndpoint,
           span('cfg-key', 'API Key:'),  inpApiKey
         ),
@@ -1186,7 +1221,11 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
 
       try {
         var conf = await fetchJSON('/api/config');
-        if (conf.base_url) inpEndpoint.value = conf.base_url;
+        if (conf.base_url) {
+          inpEndpoint.value = conf.base_url;
+          var match = PROVIDER_PRESETS.filter(function(p) { return p.url && p.url === conf.base_url; })[0];
+          provSel.value = match ? match.id : 'custom';
+        }
         if (conf.models && conf.models.length > 0) {
           renderModelCheckboxes(conf.models.map(function(id) { return { id: id, owned_by: 'configured' }; }));
         }
