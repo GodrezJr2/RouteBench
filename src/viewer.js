@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// Local-first tool — disable TLS cert verification for self-signed local router endpoints.
+// Do not use this process for untrusted external HTTPS connections.
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import { spawn } from 'node:child_process';
 import { createViewerServer } from './viewerServer.js';
 
