@@ -117,6 +117,46 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
   };
 }
 
+function mean(values) {
+  return values.length ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+}
+
+function stddev(values) {
+  if (values.length < 2) return 0;
+  const m = mean(values);
+  return Math.sqrt(mean(values.map((v) => (v - m) ** 2)));
+}
+
+// Collapse repeated runs of one (model, case) into a single row carrying the
+// mean score, run-to-run spread, and per-case error rate.
+function collapseRepeats(rows, repeats) {
+  const successes = rows.filter((r) => r.status === 'completed');
+  const scores = successes.map((r) => Number(r.score ?? 0));
+  const latencies = successes.map((r) => Number(r.latency_ms ?? 0));
+  const costs = rows.map((r) => r.estimated_cost_usd).filter((c) => c != null);
+  const base = rows[0];
+
+  if (successes.length === 0) {
+    // Every repeat failed — keep the first failure row but record the spread.
+    return { ...base, runs: repeats, success_count: 0, score_stddev: 0, score_samples: [] };
+  }
+
+  const meanScore = Math.round(mean(scores));
+  return {
+    ...successes[0],
+    status: 'completed',
+    score: meanScore,
+    passed: meanScore >= 70,
+    score_reason: `mean of ${successes.length}/${repeats} runs (±${stddev(scores).toFixed(1)})`,
+    latency_ms: Math.round(mean(latencies)),
+    runs: repeats,
+    success_count: successes.length,
+    score_stddev: Number(stddev(scores).toFixed(2)),
+    score_samples: scores,
+    estimated_cost_usd: costs.length ? Number(costs.reduce((s, c) => s + c, 0).toFixed(6)) : null,
+  };
+}
+
 export async function runBenchmark({
   models,
   cases,
@@ -127,7 +167,9 @@ export async function runBenchmark({
   concurrency = 4,
   judge = null,
   judgeCategories = [],
+  repeats = 1,
 }) {
+  const runRepeats = Math.max(1, Math.floor(repeats) || 1);
   const startedAt = new Date().toISOString();
 
   // Build the full task list; `order` keeps the output stable (model-major,
@@ -148,7 +190,14 @@ export async function runBenchmark({
     while (next < tasks.length) {
       const task = tasks[next];
       next += 1;
-      results[task.order] = await runCase({ model: task.model, testCase: task.testCase, client, now, modelCosts, judge, judgeCategories });
+      const args = { model: task.model, testCase: task.testCase, client, now, modelCosts, judge, judgeCategories };
+      if (runRepeats === 1) {
+        results[task.order] = await runCase(args);
+      } else {
+        const rows = [];
+        for (let i = 0; i < runRepeats; i += 1) rows.push(await runCase(args));
+        results[task.order] = collapseRepeats(rows, runRepeats);
+      }
       done += 1;
       if (onProgress) onProgress(done, total);
     }
@@ -170,6 +219,7 @@ export async function runBenchmark({
     started_at: startedAt,
     finished_at: new Date().toISOString(),
     models,
+    repeats: runRepeats,
     test_cases: cases.map(({ id, name, scoring, metadata }) => ({ id, name, scoring, metadata: metadata ?? {} })),
     results,
     aggregate,

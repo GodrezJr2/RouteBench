@@ -154,8 +154,10 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
   const cases = Number.isFinite(maxCases) && maxCases > 0
     ? benchmark.cases.slice(0, Math.floor(maxCases))
     : benchmark.cases;
-  const requestEstimate = config.models.length * cases.length;
-  console.log(`Running ~${requestEstimate} requests (${config.models.length} models × ${cases.length} cases).`);
+  const repeats = Math.max(1, Math.floor(Number(env.ROUTEBENCH_REPEAT)) || 1);
+  const requestEstimate = config.models.length * cases.length * repeats;
+  const repeatNote = repeats > 1 ? ` × ${repeats} repeats` : '';
+  console.log(`Running ~${requestEstimate} requests (${config.models.length} models × ${cases.length} cases${repeatNote}).`);
   if (requestEstimate > 200) console.log('Warning: large run — this may take a while and incur cost.');
 
   // Optional LLM-as-judge for open-ended categories. Off unless a judge model
@@ -176,6 +178,7 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
     concurrency: config.concurrency,
     judge,
     judgeCategories,
+    repeats,
   });
   const redact = [config.apiKey];
   await writeJson(outputPath, result, { redact });

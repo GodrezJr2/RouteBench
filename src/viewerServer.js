@@ -197,6 +197,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
         const cases = Number.isFinite(maxCases) && maxCases > 0
           ? benchmarkData.cases.slice(0, Math.floor(maxCases))
           : benchmarkData.cases;
+        const repeats = Math.max(1, Math.floor(Number(body.repeats)) || 1);
 
         const runId = Date.now().toString();
         const totalCases = models.length * cases.length;
@@ -220,6 +221,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
               client,
               modelCosts: conf.modelCosts || {},
               concurrency: conf.concurrency || 4,
+              repeats,
               onProgress(done, total) { if (run) run.progress = { done, total }; },
             });
             await mkdir(resultsDir, { recursive: true });

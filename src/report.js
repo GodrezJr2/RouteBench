@@ -37,17 +37,23 @@ export function renderMarkdownReport(result) {
   lines.push('## Recommendation', '');
   lines.push(`Primary model: \`${result.recommendation.primary_model ?? 'none'}\``);
   lines.push(`Fallback order: ${result.recommendation.fallback_models.map((model) => `\`${model}\``).join(' → ') || 'none'}`);
+  if (result.recommendation.confidence) {
+    const repeatsNote = result.repeats > 1 ? ` (${result.repeats} runs per case)` : '';
+    lines.push(`Confidence: **${result.recommendation.confidence}**${repeatsNote} — ${result.recommendation.confidence_reason}`);
+  }
   lines.push('', result.recommendation.reason, '');
 
+  const showStddev = result.recommendation.ranked_models.some((m) => m.score_stddev != null);
   lines.push('## Ranked Models', '');
-  lines.push('| Rank | Model | Route Score | Overall | Avg Latency | P95 Latency | Error Rate | Est. Cost | Reasons |');
-  lines.push('|---:|---|---:|---:|---:|---:|---:|---:|---|');
+  lines.push(`| Rank | Model | Route Score | Overall |${showStddev ? ' ±σ |' : ''} Avg Latency | P95 Latency | Error Rate | Est. Cost | Reasons |`);
+  lines.push(`|---:|---|---:|---:|${showStddev ? '---:|' : ''}---:|---:|---:|---:|---|`);
   result.recommendation.ranked_models.forEach((model, index) => {
     const reasons = [model.score_reason, model.latency_reason, model.error_rate_reason].filter(Boolean).join(' ');
     const p95 = model.p95_latency_ms != null ? `${model.p95_latency_ms}ms` : '-';
     const cost = model.total_estimated_cost_usd != null ? `$${model.total_estimated_cost_usd.toFixed(6)}` : '-';
+    const sigma = showStddev ? ` ±${model.score_stddev != null ? model.score_stddev : '-'} |` : '';
     lines.push(
-      `| ${index + 1} | ${escapeCell(model.model)} | ${model.recommendation_score} | ${model.overall_score} | ${model.avg_latency_ms}ms | ${p95} | ${pct(model.error_rate)} | ${cost} | ${escapeCell(reasons)} |`,
+      `| ${index + 1} | ${escapeCell(model.model)} | ${model.recommendation_score} | ${model.overall_score} |${sigma} ${model.avg_latency_ms}ms | ${p95} | ${pct(model.error_rate)} | ${cost} | ${escapeCell(reasons)} |`,
     );
   });
   lines.push('');

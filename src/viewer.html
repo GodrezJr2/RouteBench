@@ -731,11 +731,18 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         h('span', { class: 'run-msg', id: 'export-msg' }, '')
       );
 
-      var recBox = h('div', { class: 'rec-box' },
+      var recChildren = [
         h('div', { class: 'rec-primary' }, 'Primary: ', span('b', rec.primary_model || '—')),
         h('div', { class: 'rec-fallback' }, 'Fallback: ', makeFallbackList(rec.fallback_models)),
         h('div', { class: 'rec-reason' }, rec.reason || '')
-      );
+      ];
+      if (rec.confidence) {
+        var confCls = rec.confidence === 'low' ? 'ba' : 'bg';
+        var repTxt = data.repeats > 1 ? ' · ' + data.repeats + ' runs/case' : '';
+        recChildren.push(h('div', { class: 'rec-reason', style: 'margin-top:6px' },
+          'Confidence: ', badge(confCls, rec.confidence), txt(repTxt + ' — ' + (rec.confidence_reason || ''))));
+      }
+      var recBox = h('div', { class: 'rec-box' }, recChildren);
 
       var cards = [];
       if (primary) {
@@ -766,6 +773,10 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       ];
       if (hasCost) {
         modelCols.push({ key: 'total_estimated_cost_usd', label: 'Cost', numeric: true, get: function(m) { return m.total_estimated_cost_usd; }, render: function(m) { return m.total_estimated_cost_usd != null ? '$' + m.total_estimated_cost_usd : '—'; } });
+      }
+      var hasStddev = ranked.some(function(m) { return m.score_stddev != null; });
+      if (hasStddev) {
+        modelCols.splice(3, 0, { key: 'score_stddev', label: '±σ', numeric: true, get: function(m) { return m.score_stddev; }, render: function(m) { return m.score_stddev != null ? txt('±' + m.score_stddev) : txt('—'); }, tdStyle: 'color:var(--t3)' });
       }
       mount('sec-models', [h('h2', null, 'Ranked Models'),
         makeSortableTable(modelCols, ranked, { sortKey: 'recommendation_score', sortDir: 'desc' })]);
@@ -1048,10 +1059,14 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       var maxInput = document.getElementById('inp-max-cases');
       var max = maxInput ? parseInt(maxInput.value, 10) : NaN;
       var cases = (Number.isFinite(max) && max > 0) ? Math.min(max, packCases) : packCases;
-      var requests = models * cases;
+      var repInput = document.getElementById('inp-repeat');
+      var rep = repInput ? parseInt(repInput.value, 10) : NaN;
+      var repeats = (Number.isFinite(rep) && rep > 0) ? rep : 1;
+      var requests = models * cases * repeats;
       if (models === 0 || cases === 0) { est.textContent = ''; return; }
       var warn = requests > 200 ? '  ⚠ large run' : '';
-      est.textContent = '≈ ' + requests + ' requests (' + models + ' models × ' + cases + ' cases)' + warn;
+      var repNote = repeats > 1 ? ' × ' + repeats + ' repeats' : '';
+      est.textContent = '≈ ' + requests + ' requests (' + models + ' models × ' + cases + ' cases' + repNote + ')' + warn;
       est.className = 'run-msg' + (requests > 200 ? ' a' : '');
     }
 
@@ -1117,6 +1132,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         var maxCasesEl = document.getElementById('inp-max-cases');
         var maxCases = maxCasesEl ? parseInt(maxCasesEl.value, 10) : NaN;
         if (Number.isFinite(maxCases) && maxCases > 0) payload.max_test_cases = maxCases;
+        var repEl = document.getElementById('inp-repeat');
+        var rep = repEl ? parseInt(repEl.value, 10) : NaN;
+        if (Number.isFinite(rep) && rep > 1) payload.repeats = rep;
         var r = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1252,6 +1270,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       var inpMaxCases = document.createElement('input');
       inpMaxCases.type = 'number'; inpMaxCases.min = '1'; inpMaxCases.className = 'run-input';
       inpMaxCases.id = 'inp-max-cases'; inpMaxCases.placeholder = 'all'; inpMaxCases.style.width = '70px';
+      var inpRepeat = document.createElement('input');
+      inpRepeat.type = 'number'; inpRepeat.min = '1'; inpRepeat.className = 'run-input';
+      inpRepeat.id = 'inp-repeat'; inpRepeat.placeholder = '1'; inpRepeat.style.width = '60px';
       var runMsg    = h('span', { class: 'run-msg', id: 'run-msg' }, '');
       var btnRun    = h('button', { class: 'btn', id: 'btn-run-bench' }, 'Start Benchmark');
       btnRun.disabled = true;
@@ -1281,7 +1302,8 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         runModels,
         h('div', { class: 'run-row' },
           h('span', { class: 'pick-label' }, 'Pack:'), packSel,
-          h('span', { class: 'pick-label' }, 'Max cases:'), inpMaxCases
+          h('span', { class: 'pick-label' }, 'Max cases:'), inpMaxCases,
+          h('span', { class: 'pick-label' }, 'Repeat:'), inpRepeat
         ),
         h('div', { class: 'run-row' }, h('span', { class: 'run-msg', id: 'est-requests' }, '')),
         h('div', { class: 'run-row' }, btnRun, runMsg),
@@ -1290,6 +1312,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
 
       packSel.addEventListener('change', updateEstimate);
       inpMaxCases.addEventListener('input', updateEstimate);
+      inpRepeat.addEventListener('input', updateEstimate);
 
       try {
         var conf = await fetchJSON('/api/config');

@@ -218,6 +218,11 @@ export function aggregateResults(results) {
     const totalCost = costRows.length > 0
       ? Number(costRows.reduce((sum, r) => sum + r.estimated_cost_usd, 0).toFixed(6))
       : null;
+    // Typical run-to-run score noise, available only when cases were repeated.
+    const stddevRows = modelResults.filter((result) => result.score_stddev != null);
+    const scoreStddev = stddevRows.length > 0
+      ? Number((stddevRows.reduce((sum, r) => sum + r.score_stddev, 0) / stddevRows.length).toFixed(2))
+      : null;
     models[model] = {
       model,
       test_count: count,
@@ -226,6 +231,7 @@ export function aggregateResults(results) {
       p95_latency_ms: p95,
       error_rate: Number((errorCount / count).toFixed(4)),
       total_estimated_cost_usd: totalCost,
+      score_stddev: scoreStddev,
     };
   }
 
@@ -307,12 +313,34 @@ export function recommendModel(aggregate) {
     .sort((a, b) => b.recommendation_score - a.recommendation_score || b.overall_score - a.overall_score);
 
   const primary = ranked[0] ?? null;
+  const runnerUp = ranked[1] ?? null;
+
+  // Confidence: when the top two are within run-to-run noise (or within a small
+  // fixed margin if scores weren't repeated), the pick isn't statistically safe.
+  let confidence = 'high';
+  let confidenceReason = primary ? 'Clear leader.' : 'No models to compare.';
+  if (primary && runnerUp) {
+    const gap = primary.recommendation_score - runnerUp.recommendation_score;
+    const noise = (primary.score_stddev ?? 0) + (runnerUp.score_stddev ?? 0);
+    const margin = Math.max(3, noise);
+    if (gap <= margin) {
+      confidence = 'low';
+      confidenceReason = primary.score_stddev != null
+        ? `Top two within run-to-run noise (gap ${gap} ≤ ±${margin.toFixed(1)}); treat as a tie.`
+        : `Top two are close (gap ${gap}); repeat the run (ROUTEBENCH_REPEAT) to confirm.`;
+    } else {
+      confidenceReason = `Leads the runner-up by ${gap} points.`;
+    }
+  }
+
   return {
     task_type: 'phase0_general_router',
     primary_model: primary?.model ?? null,
     fallback_models: ranked.slice(1).map((model) => model.model),
+    confidence,
+    confidence_reason: confidenceReason,
     reason: primary
-      ? `Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}${ctx.costAvailable ? ' ' + primary.cost_reason : ''}`
+      ? `Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}${ctx.costAvailable ? ' ' + primary.cost_reason : ''}${confidence === 'low' ? ' ⚠ ' + confidenceReason : ''}`
       : 'No model results available.',
     ranked_models: ranked,
   };

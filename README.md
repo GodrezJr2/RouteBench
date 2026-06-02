@@ -153,6 +153,10 @@ The judge returns a 0–100 score with a one-line reason (stored as `judge_reaso
 
 `ROUTEBENCH_MAX_TEST_CASES` caps how many cases per model a run executes (useful for a quick smoke run or to limit spend). The CLI prints the estimated request count (`models × cases`) before each run and warns on large runs. The dashboard Run panel shows the same live estimate and exposes a **Max cases** input.
 
+### Repeated runs and confidence
+
+`ROUTEBENCH_REPEAT=N` runs each case N times and reports the mean score with run-to-run spread (`±σ`). A single shot can flip a recommendation on noise; repeating makes the result defensible. The recommendation gains a `confidence` field — it's flagged **low** when the top two models are within the measured noise (or, without repeats, within a small margin), so a near-tie isn't presented as a clear winner. The dashboard exposes a **Repeat** input and shows the confidence badge and `±σ` column.
+
 ---
 
 ## Output files
