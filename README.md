@@ -67,11 +67,13 @@ Full benchmark with report and routing export:
 npm run bench -- --output results/results.json --report results/report.md --route-output results/routing.json
 ```
 
-Open the local result viewer (serves `results/` on localhost:3001):
+Open the local dashboard (serves `results/` on localhost:3001):
 
 ```powershell
 npm run view
 ```
+
+The dashboard can: enter an endpoint + API key (or read them from `routebench.config.json`), discover models, filter/search and select which to benchmark, run a benchmark with live progress (current model, elapsed, ETA), and view ranked results. Result tables are sortable; failed cases expand to show the full error and model output; and each result can be downloaded as JSON, a Markdown report, or a routing-export JSON. The API key stays in process memory only and is never written to disk or returned to the browser.
 
 Compare two benchmark runs (regression/improvement diff):
 

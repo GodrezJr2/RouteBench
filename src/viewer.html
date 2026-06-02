@@ -239,6 +239,46 @@ pre {
   min-height: 56px; color: var(--t3); font-size: 13px;
 }
 #loading:empty { display: none; }
+
+/* ── Model search ─────────────────────────────────────────── */
+.model-search-row { margin-bottom: 8px; }
+#model-search { width: 100%; max-width: 320px; }
+
+/* ── Ghost button + actions toolbar ───────────────────────── */
+.btn-ghost { background: var(--s2); color: var(--t1); border: 1px solid var(--bd); }
+.btn-ghost:hover { background: var(--s3); border-color: var(--bd2); }
+.actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
+/* ── Sortable table headers ───────────────────────────────── */
+th.sortable { cursor: pointer; user-select: none; transition: color 120ms; }
+th.sortable:hover { color: var(--t2); }
+th.sortable.active { color: var(--t1); }
+.sort-caret { display: inline-block; margin-left: 4px; font-size: 9px; color: var(--blue); }
+
+/* ── Expandable rows ──────────────────────────────────────── */
+tr.expandable { cursor: pointer; }
+tr.expandable > td:first-child { white-space: nowrap; }
+.row-caret {
+  display: inline-block; width: 5px; height: 5px; margin-right: 7px;
+  border-right: 1.5px solid var(--t3); border-bottom: 1.5px solid var(--t3);
+  transform: rotate(-45deg); transition: transform 150ms ease-out;
+}
+tr.expandable.open > td:first-child .row-caret { transform: rotate(45deg); }
+tr.expandable.open > td { background: var(--s2); }
+td.detail-cell { background: var(--s2); padding: 14px 16px; }
+.detail-grid {
+  display: grid; grid-template-columns: max-content 1fr; gap: 5px 18px;
+  font-size: 11.5px; margin-bottom: 10px;
+}
+.detail-key { color: var(--t3); white-space: nowrap; }
+.detail-val { color: var(--t1); font-family: var(--mono); word-break: break-word; }
+.detail-label { font-size: 10px; font-weight: 600; color: var(--t3); text-transform: uppercase; letter-spacing: .5px; margin: 10px 0 5px; }
+td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
+
+/* ── Progress detail ──────────────────────────────────────── */
+.run-progress { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+.run-progress-bar-row { display: flex; align-items: center; gap: 10px; }
+.progress-meta { font-size: 11px; color: var(--t3); font-family: var(--mono); font-variant-numeric: tabular-nums; }
   </style>
 </head>
 <body>
@@ -338,6 +378,120 @@ pre {
       return h('div', { class: 'tbl-wrap' }, h('table', null, thead, tbody));
     }
 
+    // Sortable (and optionally expandable) data table.
+    // columns: [{ key, label, numeric?, get(row), sortVal?(row), render?(row,i), tdStyle?, sortable? }]
+    // opts: { sortKey, sortDir ('asc'|'desc'), expand(row)->Node }
+    function makeSortableTable(columns, rows, opts) {
+      opts = opts || {};
+      var state = { key: opts.sortKey || null, dir: opts.sortDir || 'asc' };
+      var thead = h('thead', null);
+      var tbody = h('tbody', null);
+
+      function sortRows() {
+        if (!state.key) return rows.slice();
+        var col = columns.filter(function(c) { return c.key === state.key; })[0];
+        if (!col) return rows.slice();
+        var sorted = rows.slice().sort(function(a, b) {
+          var va = col.sortVal ? col.sortVal(a) : col.get(a);
+          var vb = col.sortVal ? col.sortVal(b) : col.get(b);
+          if (col.numeric) {
+            va = (va == null || isNaN(va)) ? -Infinity : Number(va);
+            vb = (vb == null || isNaN(vb)) ? -Infinity : Number(vb);
+            return va - vb;
+          }
+          return String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb));
+        });
+        if (state.dir === 'desc') sorted.reverse();
+        return sorted;
+      }
+
+      function renderHead() {
+        var ths = columns.map(function(col) {
+          if (col.sortable === false) return h('th', null, col.label);
+          var active = state.key === col.key;
+          var node = h('th', { class: 'sortable' + (active ? ' active' : '') }, col.label);
+          if (active) node.appendChild(h('span', { class: 'sort-caret' }, state.dir === 'asc' ? '↑' : '↓'));
+          node.addEventListener('click', function() {
+            if (state.key === col.key) { state.dir = state.dir === 'asc' ? 'desc' : 'asc'; }
+            else { state.key = col.key; state.dir = col.numeric ? 'desc' : 'asc'; }
+            renderHead(); renderBody();
+          });
+          return node;
+        });
+        thead.replaceChildren(h('tr', null, ths));
+      }
+
+      function renderBody() {
+        var sorted = sortRows();
+        var trs = [];
+        sorted.forEach(function(row, i) {
+          var cells = columns.map(function(col) {
+            var content = col.render ? col.render(row, i) : txt(col.get(row));
+            return h('td', col.tdStyle ? { style: col.tdStyle } : null, content);
+          });
+          var tr = h('tr', null, cells);
+          if (opts.expand) {
+            tr.className = 'expandable';
+            cells[0].insertBefore(h('span', { class: 'row-caret' }), cells[0].firstChild);
+            var detailTd = h('td', { class: 'detail-cell' }, opts.expand(row));
+            detailTd.colSpan = columns.length;
+            var detailTr = h('tr', null, detailTd);
+            detailTr.style.display = 'none';
+            tr.addEventListener('click', function() {
+              var hidden = detailTr.style.display === 'none';
+              detailTr.style.display = hidden ? '' : 'none';
+              tr.classList.toggle('open', hidden);
+            });
+            trs.push(tr, detailTr);
+          } else {
+            trs.push(tr);
+          }
+        });
+        tbody.replaceChildren.apply(tbody, trs);
+      }
+
+      renderHead(); renderBody();
+      return h('div', { class: 'tbl-wrap' }, h('table', null, thead, tbody));
+    }
+
+    // ── Download / export ─────────────────────────────────────
+    var lastResult = null;
+    var currentResultPath = '';
+
+    function downloadBlob(filename, text, mime) {
+      var blob = new Blob([text], { type: mime });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function downloadResultJson() {
+      var msg = document.getElementById('export-msg');
+      if (!lastResult) { if (msg) { msg.textContent = 'No result loaded'; msg.className = 'run-msg r'; } return; }
+      var name = currentResultPath ? base(currentResultPath) : 'result.json';
+      downloadBlob(name, JSON.stringify(lastResult, null, 2) + '\n', 'application/json');
+      if (msg) { msg.textContent = 'JSON downloaded'; msg.className = 'run-msg g'; }
+    }
+
+    async function downloadExport(format) {
+      var msg = document.getElementById('export-msg');
+      if (!currentResultPath) { if (msg) { msg.textContent = 'No result loaded'; msg.className = 'run-msg r'; } return; }
+      if (msg) { msg.textContent = 'Generating ' + format + '…'; msg.className = 'run-msg'; }
+      try {
+        var r = await fetch('/api/export?path=' + encodeURIComponent(currentResultPath) + '&format=' + format);
+        if (!r.ok) { var e = await r.json().catch(function() { return {}; }); throw new Error(e.error || ('HTTP ' + r.status)); }
+        var text = await r.text();
+        var b = base(currentResultPath).replace(/\.json$/, '');
+        if (format === 'report') downloadBlob(b + '-report.md', text, 'text/markdown');
+        else downloadBlob(b + '-routing.json', text, 'application/json');
+        if (msg) { msg.textContent = format + ' downloaded'; msg.className = 'run-msg g'; }
+      } catch (e) {
+        if (msg) { msg.textContent = e.message; msg.className = 'run-msg r'; }
+      }
+    }
+
     function categoryBreakdown(results) {
       var groups = new Map();
       for (var i = 0; i < results.length; i++) {
@@ -357,6 +511,7 @@ pre {
     }
 
     var runPollId = null;
+    var runMeta = null;
 
     function base(f) { return f.split('/').pop().split('\\').pop(); }
 
@@ -438,6 +593,7 @@ pre {
       var comparePath = document.getElementById('sel-compare').value;
       var loadDiv = document.getElementById('loading');
       var content = document.getElementById('content');
+      currentResultPath = resultPath || '';
       loadDiv.textContent = 'Loading…';
       content.style.display = 'none';
       try {
@@ -460,10 +616,24 @@ pre {
       }
     }
 
+    function mkActionBtn(label, handler) {
+      var b = h('button', { class: 'btn btn-ghost' }, label);
+      b.addEventListener('click', handler);
+      return b;
+    }
+
     function renderResult(data) {
+      lastResult = data;
       var rec    = data.recommendation || {};
       var ranked = rec.ranked_models || [];
       var primary = ranked.find(function(m) { return m.model === rec.primary_model; });
+
+      var actions = h('div', { class: 'actions' },
+        mkActionBtn('Download JSON',    downloadResultJson),
+        mkActionBtn('Download Report',  function() { downloadExport('report'); }),
+        mkActionBtn('Download Routing', function() { downloadExport('routing'); }),
+        h('span', { class: 'run-msg', id: 'export-msg' }, '')
+      );
 
       var recBox = h('div', { class: 'rec-box' },
         h('div', { class: 'rec-primary' }, 'Primary: ', span('b', rec.primary_model || '—')),
@@ -483,37 +653,33 @@ pre {
           cards.push(makeCard('Total Cost', '$' + primary.total_estimated_cost_usd, 'all test cases', 'm'));
         }
       }
-      mount('sec-rec', [recBox, cards.length > 0 ? h('div', { class: 'cards', style: 'margin-top:12px' }, cards) : null]);
+      mount('sec-rec', [actions, recBox, cards.length > 0 ? h('div', { class: 'cards', style: 'margin-top:12px' }, cards) : null]);
 
       var hasCost = ranked.some(function(m) { return m.total_estimated_cost_usd != null; });
-      var headers = ['#', 'Model', 'Route Score', 'Overall', 'Avg Latency', 'Error Rate', 'Cases'];
-      if (hasCost) headers.push('Cost');
-      var modelRows = ranked.map(function(m, i) {
-        var cells = [
-          td(String(i + 1), 'color:var(--t3)'),
-          td(h('strong', null, m.model)),
-          td(span(scoreColor(m.recommendation_score), String(m.recommendation_score))),
-          td(span(scoreColor(m.overall_score),        String(m.overall_score))),
-          td(ms(m.avg_latency_ms)),
-          td(span(errColor(m.error_rate), pct(m.error_rate))),
-          td(String(m.test_count != null ? m.test_count : '—'), 'color:var(--t3)'),
-        ];
-        if (hasCost) cells.push(td(m.total_estimated_cost_usd != null ? '$' + m.total_estimated_cost_usd : '—'));
-        return h('tr', null, cells);
-      });
-      mount('sec-models', [h('h2', null, 'Ranked Models'), makeTable(headers, modelRows)]);
+      var modelCols = [
+        { key: 'model', label: 'Model', get: function(m) { return m.model; }, render: function(m) { return h('strong', null, m.model); } },
+        { key: 'recommendation_score', label: 'Route Score', numeric: true, get: function(m) { return m.recommendation_score; }, render: function(m) { return span(scoreColor(m.recommendation_score), String(m.recommendation_score)); } },
+        { key: 'overall_score', label: 'Overall', numeric: true, get: function(m) { return m.overall_score; }, render: function(m) { return span(scoreColor(m.overall_score), String(m.overall_score)); } },
+        { key: 'avg_latency_ms', label: 'Avg Latency', numeric: true, get: function(m) { return m.avg_latency_ms; }, render: function(m) { return ms(m.avg_latency_ms); } },
+        { key: 'error_rate', label: 'Error Rate', numeric: true, get: function(m) { return m.error_rate; }, render: function(m) { return span(errColor(m.error_rate), pct(m.error_rate)); } },
+        { key: 'test_count', label: 'Cases', numeric: true, get: function(m) { return m.test_count; }, render: function(m) { return td0(m.test_count); }, tdStyle: 'color:var(--t3)' },
+      ];
+      if (hasCost) {
+        modelCols.push({ key: 'total_estimated_cost_usd', label: 'Cost', numeric: true, get: function(m) { return m.total_estimated_cost_usd; }, render: function(m) { return m.total_estimated_cost_usd != null ? '$' + m.total_estimated_cost_usd : '—'; } });
+      }
+      mount('sec-models', [h('h2', null, 'Ranked Models'),
+        makeSortableTable(modelCols, ranked, { sortKey: 'recommendation_score', sortDir: 'desc' })]);
 
       var cats = categoryBreakdown(data.results || []);
-      var catRows = cats.map(function(row) {
-        return h('tr', null,
-          td(row.model),
-          td(badge('bb', row.category)),
-          td(span(scoreColor(row.avg), String(row.avg))),
-          td(row.failures > 0 ? span('r', String(row.failures)) : span('g', '0')),
-          td(String(row.count), 'color:var(--t3)')
-        );
-      });
-      mount('sec-cats', [h('h2', null, 'Category Breakdown'), makeTable(['Model', 'Category', 'Avg Score', 'Failures', 'Cases'], catRows)]);
+      var catCols = [
+        { key: 'model', label: 'Model', get: function(r) { return r.model; } },
+        { key: 'category', label: 'Category', get: function(r) { return r.category; }, render: function(r) { return badge('bb', r.category); } },
+        { key: 'avg', label: 'Avg Score', numeric: true, get: function(r) { return r.avg; }, render: function(r) { return span(scoreColor(r.avg), String(r.avg)); } },
+        { key: 'failures', label: 'Failures', numeric: true, get: function(r) { return r.failures; }, render: function(r) { return r.failures > 0 ? span('r', String(r.failures)) : span('g', '0'); } },
+        { key: 'count', label: 'Cases', numeric: true, get: function(r) { return r.count; }, tdStyle: 'color:var(--t3)' },
+      ];
+      mount('sec-cats', [h('h2', null, 'Category Breakdown'),
+        makeSortableTable(catCols, cats, { sortKey: 'avg', sortDir: 'desc' })]);
 
       var failed = (data.results || []).filter(function(r) { return r.status !== 'completed' || r.passed === false; });
       var failedSummary = h('summary', null, 'Failed Cases (' + failed.length + ')');
@@ -521,23 +687,52 @@ pre {
       if (failed.length === 0) {
         failedBody = h('div', { class: 'details-body' }, h('p', { class: 'empty' }, 'All cases passed.'));
       } else {
-        var fRows = failed.map(function(r) {
-          var msg = String(r.error_message || r.score_reason || '').slice(0, 120);
-          return h('tr', null,
-            td(r.model),
-            td(r.test_case_id, 'font-family:var(--mono);font-size:11px'),
-            td(r.category || ''),
-            td(badge(statusBadge(r.status), r.status)),
-            td(String(r.score || 0)),
-            td(ms(r.latency_ms)),
-            td(msg, 'font-size:11px;color:var(--t3);max-width:280px')
-          );
-        });
+        var failedCols = [
+          { key: 'model', label: 'Model', get: function(r) { return r.model; } },
+          { key: 'test_case_id', label: 'Case', get: function(r) { return r.test_case_id; }, render: function(r) { return r.test_case_id; }, tdStyle: 'font-family:var(--mono);font-size:11px' },
+          { key: 'category', label: 'Category', get: function(r) { return r.category || ''; } },
+          { key: 'status', label: 'Status', get: function(r) { return r.status; }, render: function(r) { return badge(statusBadge(r.status), r.status); } },
+          { key: 'score', label: 'Score', numeric: true, get: function(r) { return r.score || 0; } },
+          { key: 'latency_ms', label: 'Latency', numeric: true, get: function(r) { return r.latency_ms; }, render: function(r) { return ms(r.latency_ms); } },
+          { key: 'msg', label: 'Message', sortable: false, get: function(r) { return ''; }, render: function(r) { return span('', String(r.error_message || r.score_reason || '').slice(0, 90)); }, tdStyle: 'font-size:11px;color:var(--t3);max-width:260px' },
+        ];
         failedBody = h('div', { class: 'details-body' },
-          makeTable(['Model', 'Case', 'Category', 'Status', 'Score', 'Latency', 'Message'], fRows)
+          makeSortableTable(failedCols, failed, { expand: failedDetail })
         );
       }
       mount('sec-failed', [h('details', failed.length > 0 ? { open: true } : null, failedSummary, failedBody)]);
+    }
+
+    function td0(v) { return String(v != null ? v : '—'); }
+
+    function failedDetail(r) {
+      var kv = [
+        ['Status', r.status],
+        ['Error type', r.error_type || '—'],
+        ['Error status', r.error_status != null ? String(r.error_status) : '—'],
+        ['Score', String(r.score != null ? r.score : 0)],
+        ['Latency', ms(r.latency_ms)],
+        ['Score reason', r.score_reason || '—'],
+      ];
+      var grid = h('div', { class: 'detail-grid' });
+      kv.forEach(function(pair) {
+        grid.appendChild(h('div', { class: 'detail-key' }, pair[0]));
+        grid.appendChild(h('div', { class: 'detail-val' }, pair[1]));
+      });
+      var nodes = [grid];
+      if (r.error_message) {
+        var pm = h('pre', null); pm.textContent = r.error_message;
+        nodes.push(h('div', { class: 'detail-label' }, 'Error message'), pm);
+      }
+      if (r.error_body_preview) {
+        var pb = h('pre', null); pb.textContent = r.error_body_preview;
+        nodes.push(h('div', { class: 'detail-label' }, 'Provider body preview'), pb);
+      }
+      if (r.output) {
+        var po = h('pre', null); po.textContent = r.output;
+        nodes.push(h('div', { class: 'detail-label' }, 'Model output'), po);
+      }
+      return h('div', null, nodes);
     }
 
     function renderRouting(routing) {
@@ -547,17 +742,15 @@ pre {
         h('div', { class: 'rec-fallback' }, 'Fallback: ', makeFallbackList(routing.fallback_models)),
         h('div', { class: 'rec-reason' }, 'Endpoint: ' + (routing.endpoint || '—') + '  Schema: ' + (routing.schema_version || '—'))
       );
-      var ruleRows = rules.map(function(r) {
-        return h('tr', null,
-          td(String(r.priority), 'color:var(--t3)'),
-          td(h('strong', null, r.model)),
-          td(span(scoreColor(r.route_score),  String(r.route_score))),
-          td(span(scoreColor(r.overall_score),String(r.overall_score))),
-          td(ms(r.avg_latency_ms)),
-          td(span(errColor(r.error_rate), pct(r.error_rate))),
-          td(r.reason || '', 'font-size:11px;color:var(--t3)')
-        );
-      });
+      var ruleCols = [
+        { key: 'priority', label: 'Priority', numeric: true, get: function(r) { return r.priority; }, tdStyle: 'color:var(--t3)' },
+        { key: 'model', label: 'Model', get: function(r) { return r.model; }, render: function(r) { return h('strong', null, r.model); } },
+        { key: 'route_score', label: 'Route Score', numeric: true, get: function(r) { return r.route_score; }, render: function(r) { return span(scoreColor(r.route_score), String(r.route_score)); } },
+        { key: 'overall_score', label: 'Overall', numeric: true, get: function(r) { return r.overall_score; }, render: function(r) { return span(scoreColor(r.overall_score), String(r.overall_score)); } },
+        { key: 'avg_latency_ms', label: 'Latency', numeric: true, get: function(r) { return r.avg_latency_ms; }, render: function(r) { return ms(r.avg_latency_ms); } },
+        { key: 'error_rate', label: 'Error Rate', numeric: true, get: function(r) { return r.error_rate; }, render: function(r) { return span(errColor(r.error_rate), pct(r.error_rate)); } },
+        { key: 'reason', label: 'Reason', sortable: false, get: function(r) { return r.reason || ''; }, tdStyle: 'font-size:11px;color:var(--t3)' },
+      ];
       var pre = h('pre', null);
       pre.textContent = JSON.stringify(routing, null, 2);
       var rawSection = h('details', null,
@@ -567,7 +760,7 @@ pre {
       mount('sec-routing', [
         h('h2', null, 'Routing Export'),
         recBox,
-        makeTable(['Priority', 'Model', 'Route Score', 'Overall', 'Latency', 'Error Rate', 'Reason'], ruleRows),
+        makeSortableTable(ruleCols, rules, { sortKey: 'priority', sortDir: 'asc' }),
         h('div', { style: 'margin-top:12px' }, rawSection)
       ]);
     }
@@ -593,29 +786,27 @@ pre {
         : h('div', { class: 'rec-fallback' },   'Fallback chain unchanged');
       var recBox = h('div', { class: 'rec-box', style: 'margin-bottom:12px;border-color:' + recBorderColor }, primaryLine, fallbackLine);
 
-      var mcRows = mcs.map(function(mc) {
-        var modelCell = h('td', null, h('strong', null, mc.model));
-        if (!mc.in_baseline) modelCell.appendChild(txt(' ')), modelCell.appendChild(badge('bg', 'new'));
-        else if (!mc.in_candidate) modelCell.appendChild(txt(' ')), modelCell.appendChild(badge('ba', 'removed'));
-
-        function deltaTd(val, suffix, posGood) {
-          if (val == null) return td('—');
-          var rounded = Math.round(val);
-          var sign = rounded > 0 ? '+' : '';
-          var cls  = rounded > 0 ? (posGood ? 'g' : 'r') : rounded < 0 ? (posGood ? 'r' : 'g') : '';
-          return td(span(cls, sign + rounded + (suffix || '')));
-        }
-
-        return h('tr', null,
-          modelCell,
-          td(mc.baseline  ? String(mc.baseline.overall_score)  : '—', 'color:var(--t3)'),
-          td(mc.candidate ? String(mc.candidate.overall_score) : '—', 'color:var(--t3)'),
-          deltaTd(mc.score_delta, '', true),
-          deltaTd(mc.latency_delta_ms, 'ms', false),
-          deltaTd(mc.error_rate_delta != null ? mc.error_rate_delta * 100 : null, '%', false)
-        );
-      });
-      var mcTable = makeTable(['Model', 'Baseline', 'Candidate', 'Score Delta', 'Latency Delta', 'Error Delta'], mcRows);
+      function deltaSpan(val, suffix, posGood) {
+        if (val == null) return txt('—');
+        var rounded = Math.round(val);
+        var sign = rounded > 0 ? '+' : '';
+        var cls  = rounded > 0 ? (posGood ? 'g' : 'r') : rounded < 0 ? (posGood ? 'r' : 'g') : '';
+        return span(cls, sign + rounded + (suffix || ''));
+      }
+      var mcCols = [
+        { key: 'model', label: 'Model', get: function(mc) { return mc.model; }, render: function(mc) {
+            var cell = h('span', null, h('strong', null, mc.model));
+            if (!mc.in_baseline) { cell.appendChild(txt(' ')); cell.appendChild(badge('bg', 'new')); }
+            else if (!mc.in_candidate) { cell.appendChild(txt(' ')); cell.appendChild(badge('ba', 'removed')); }
+            return cell;
+          } },
+        { key: 'baseline', label: 'Baseline', numeric: true, get: function(mc) { return mc.baseline ? mc.baseline.overall_score : null; }, render: function(mc) { return mc.baseline ? String(mc.baseline.overall_score) : '—'; }, tdStyle: 'color:var(--t3)' },
+        { key: 'candidate', label: 'Candidate', numeric: true, get: function(mc) { return mc.candidate ? mc.candidate.overall_score : null; }, render: function(mc) { return mc.candidate ? String(mc.candidate.overall_score) : '—'; }, tdStyle: 'color:var(--t3)' },
+        { key: 'score_delta', label: 'Score Delta', numeric: true, get: function(mc) { return mc.score_delta; }, render: function(mc) { return deltaSpan(mc.score_delta, '', true); } },
+        { key: 'latency_delta_ms', label: 'Latency Delta', numeric: true, get: function(mc) { return mc.latency_delta_ms; }, render: function(mc) { return deltaSpan(mc.latency_delta_ms, 'ms', false); } },
+        { key: 'error_rate_delta', label: 'Error Delta', numeric: true, get: function(mc) { return mc.error_rate_delta; }, render: function(mc) { return deltaSpan(mc.error_rate_delta != null ? mc.error_rate_delta * 100 : null, '%', false); } },
+      ];
+      var mcTable = makeSortableTable(mcCols, mcs, { sortKey: 'score_delta', sortDir: 'asc' });
 
       var caseRows = [];
       mcs.forEach(function(mc) {
@@ -650,23 +841,24 @@ pre {
         wrap.appendChild(h('p', { class: 'empty' }, 'No models available.'));
         updateRunBtn(); return;
       }
-      var btnAll  = h('button', { class: 'chips-action-btn' }, 'All');
-      var btnNone = h('button', { class: 'chips-action-btn' }, 'None');
-      btnAll.addEventListener('click', function() {
-        wrap.querySelectorAll('.model-item input[type=checkbox]').forEach(function(cb) { cb.checked = true; });
-        updateRunBtn();
-      });
-      btnNone.addEventListener('click', function() {
-        wrap.querySelectorAll('.model-item input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
-        updateRunBtn();
-      });
-      var chipHeader = h('div', { class: 'chips-header' },
-        h('span', { class: 'chips-label' }, models.length + ' models'),
+
+      var search = document.createElement('input');
+      search.type = 'text'; search.className = 'run-input'; search.id = 'model-search';
+      search.placeholder = 'Filter models…';
+
+      var countLabel = h('span', { class: 'chips-label', id: 'model-count' }, '');
+      var btnAll  = h('button', { class: 'chips-action-btn' }, 'Select all');
+      var btnNone = h('button', { class: 'chips-action-btn' }, 'Clear');
+      var header = h('div', { class: 'chips-header' },
+        countLabel,
         h('div', { class: 'chips-actions' }, btnAll, btnNone)
       );
-      var list = h('div', { class: 'model-list' });
+
+      var list = h('div', { class: 'model-list', id: 'model-list-inner' });
       models.forEach(function(m) {
         var id = m.id || String(m);
+        var item = h('div', { class: 'model-item' });
+        item.dataset.model = id.toLowerCase();
         var cb = document.createElement('input');
         cb.type = 'checkbox'; cb.id = 'cb-' + id; cb.value = id; cb.checked = true;
         cb.addEventListener('change', updateRunBtn);
@@ -676,16 +868,40 @@ pre {
         if (m.owned_by && m.owned_by !== 'configured' && m.owned_by !== 'unknown') {
           lbl.appendChild(document.createTextNode(' · ' + m.owned_by));
         }
-        list.appendChild(h('div', { class: 'model-item' }, cb, lbl));
+        item.appendChild(cb); item.appendChild(lbl);
+        list.appendChild(item);
       });
-      wrap.replaceChildren(chipHeader, list);
+
+      function visibleItems() {
+        return Array.prototype.slice.call(list.querySelectorAll('.model-item')).filter(function(it) { return it.style.display !== 'none'; });
+      }
+      search.addEventListener('input', function() {
+        var q = search.value.trim().toLowerCase();
+        list.querySelectorAll('.model-item').forEach(function(it) {
+          it.style.display = (!q || it.dataset.model.indexOf(q) >= 0) ? '' : 'none';
+        });
+        updateRunBtn();
+      });
+      btnAll.addEventListener('click', function() {
+        visibleItems().forEach(function(it) { it.querySelector('input').checked = true; });
+        updateRunBtn();
+      });
+      btnNone.addEventListener('click', function() {
+        visibleItems().forEach(function(it) { it.querySelector('input').checked = false; });
+        updateRunBtn();
+      });
+
+      wrap.replaceChildren(h('div', { class: 'model-search-row' }, search), header, list);
       updateRunBtn();
     }
 
     function updateRunBtn() {
+      var checked = document.querySelectorAll('#run-models input[type=checkbox]:checked').length;
+      var total   = document.querySelectorAll('#run-models input[type=checkbox]').length;
       var btn = document.getElementById('btn-run-bench');
-      if (!btn) return;
-      btn.disabled = document.querySelectorAll('#run-models input[type=checkbox]:checked').length < 1;
+      if (btn) btn.disabled = checked < 1;
+      var cl = document.getElementById('model-count');
+      if (cl) cl.textContent = checked + ' selected · ' + total + ' models';
     }
 
     async function discoverModels() {
@@ -740,6 +956,7 @@ pre {
         });
         var data = await r.json();
         if (!r.ok) throw new Error(data.error || 'start failed');
+        runMeta = { models: data.models || models, casesPerPack: data.cases_per_pack || 0, total: data.total_cases || 0, startMs: Date.now() };
         if (progressWrap) progressWrap.style.display = 'flex';
         updateRunProgress({ done: 0, total: data.total_cases });
         if (runMsg) { runMsg.textContent = 'Running…'; runMsg.className = 'run-msg a'; }
@@ -749,13 +966,34 @@ pre {
       }
     }
 
+    function fmtTime(s) {
+      s = Math.max(0, Math.round(s));
+      var m = Math.floor(s / 60), ss = s % 60;
+      return m + ':' + (ss < 10 ? '0' : '') + ss;
+    }
+
     function updateRunProgress(progress) {
       var fill  = document.getElementById('run-progress-fill');
       var label = document.getElementById('run-progress-label');
+      var meta  = document.getElementById('run-progress-meta');
       var total = progress.total || 0, done = progress.done || 0;
-      var pct   = total > 0 ? Math.round((done / total) * 100) : 0;
-      if (fill)  fill.style.width = pct + '%';
-      if (label) label.textContent = done + ' / ' + total + '  (' + pct + '%)';
+      var pctv  = total > 0 ? Math.round((done / total) * 100) : 0;
+      if (fill)  fill.style.width = pctv + '%';
+      if (label) label.textContent = done + ' / ' + total + '  (' + pctv + '%)';
+      if (meta && runMeta) {
+        var parts = [];
+        if (runMeta.casesPerPack > 0 && runMeta.models && runMeta.models.length) {
+          var idx = Math.min(Math.floor(done / runMeta.casesPerPack), runMeta.models.length - 1);
+          if (done >= total) idx = runMeta.models.length - 1;
+          parts.push('model ' + (idx + 1) + '/' + runMeta.models.length + ': ' + runMeta.models[idx]);
+        }
+        if (runMeta.startMs) {
+          var el = (Date.now() - runMeta.startMs) / 1000;
+          parts.push(fmtTime(el) + ' elapsed');
+          if (done > 0 && done < total) parts.push('~' + fmtTime(el / done * (total - done)) + ' left');
+        }
+        meta.textContent = parts.join('  ·  ');
+      }
     }
 
     function pollRun(runId) {
@@ -810,9 +1048,13 @@ pre {
 
       var progressFill  = h('div', { class: 'progress-fill',  id: 'run-progress-fill' });
       var progressLabel = h('span',{ class: 'progress-label', id: 'run-progress-label' }, '');
-      var progressWrap  = h('div', { class: 'run-row', id: 'run-progress-wrap', style: 'display:none' },
-        h('div', { class: 'progress-track' }, progressFill),
-        progressLabel
+      var progressMeta  = h('div', { class: 'progress-meta',  id: 'run-progress-meta' }, '');
+      var progressWrap  = h('div', { class: 'run-progress', id: 'run-progress-wrap', style: 'display:none' },
+        h('div', { class: 'run-progress-bar-row' },
+          h('div', { class: 'progress-track' }, progressFill),
+          progressLabel
+        ),
+        progressMeta
       );
 
       body.replaceChildren(

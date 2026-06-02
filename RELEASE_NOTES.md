@@ -1,3 +1,32 @@
+# RouteBench v1.2.0 Release Notes
+
+## What's new in v1.2.0
+
+### Dashboard UX polish (Phase 1.2)
+
+Builds on the Phase 1.1 interactive dashboard (`npm run view`). No changes to the benchmark core.
+
+**Model discovery**
+- Search/filter box above the model list, filters as you type
+- Live selection counter (`N selected · M models`)
+- Select all / Clear act on the currently-filtered set, not the whole list
+
+**Benchmark progress**
+- Live detail line: which model is running (`model 2/5: …`), elapsed time, and a rolling ETA
+- `POST /api/run` now returns `cases_per_pack` and `models` so the client can render the detail without extra requests
+
+**Results**
+- All result tables are sortable by clicking a column header (ranked models, category breakdown, routing rules, compare model changes); numeric columns default to high-to-low
+- Failed cases expand inline to show the full error message, provider body preview, score reason, and model output
+- Download buttons on each loaded result: JSON, Markdown report, or routing-export JSON
+
+**New endpoint**
+- `GET /api/export?path=…&format=report|routing` renders a Markdown report or a clean routing export on demand, reusing the existing `report.js` / `routeExport.js` code. Path is sanitized to the results directory; the routing export never includes an API key.
+
+All Phase 1.0/1.1 constraints still hold: local-first, single-user, no auth, no database, no SaaS, no LLM-as-judge.
+
+---
+
 # RouteBench v1.1.0 Release Notes
 
 ## What's new in v1.1.0

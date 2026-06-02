@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs } from './config.js';
 import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient } from './openaiClient.js';
+import { renderMarkdownReport } from './report.js';
+import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -195,7 +197,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
         runs.set(runId, { status: 'running', progress: { done: 0, total: totalCases }, result_path: null, error: null });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ run_id: runId, total_cases: totalCases }));
+        res.end(JSON.stringify({ run_id: runId, total_cases: totalCases, cases_per_pack: benchmarkData.cases.length, models }));
 
         (async () => {
           const run = runs.get(runId);
@@ -236,6 +238,32 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
         res.end(JSON.stringify(run));
         return;
       }
+    }
+
+    if (url.pathname === '/api/export') {
+      const filePath = url.searchParams.get('path');
+      const format = url.searchParams.get('format');
+      try {
+        const safe = sanitizePath(filePath, resultsDir);
+        const result = JSON.parse(await readFile(safe, 'utf8'));
+        if (format === 'report') {
+          const md = renderMarkdownReport(result);
+          res.writeHead(200, { 'Content-Type': 'text/markdown; charset=utf-8' });
+          res.end(md);
+        } else if (format === 'routing') {
+          const routing = renderRouteExport(result, { baseUrl: '' });
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(`${JSON.stringify(routing, null, 2)}\n`);
+        } else {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: `unknown export format "${format}". Supported: report, routing` }));
+        }
+      } catch (err) {
+        const status = err.message.includes('traversal') || err.message.includes('required') ? 403 : 404;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+      return;
     }
 
     res.writeHead(404);
