@@ -192,13 +192,19 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
         const bodyBaseUrl = (typeof body.base_url === 'string' && body.base_url.trim()) ? body.base_url.trim() : null;
         const bodyApiKey = (typeof body.api_key === 'string' && body.api_key.trim()) ? body.api_key.trim() : null;
 
+        // Optional guardrail: cap the number of cases per model for this run.
+        const maxCases = Number(body.max_test_cases);
+        const cases = Number.isFinite(maxCases) && maxCases > 0
+          ? benchmarkData.cases.slice(0, Math.floor(maxCases))
+          : benchmarkData.cases;
+
         const runId = Date.now().toString();
-        const totalCases = models.length * benchmarkData.cases.length;
+        const totalCases = models.length * cases.length;
         const outputPath = `${resultsDir}/run-${runId}.json`.replace(/\\/g, '/');
         runs.set(runId, { status: 'running', progress: { done: 0, total: totalCases }, result_path: null, error: null });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ run_id: runId, total_cases: totalCases, cases_per_pack: benchmarkData.cases.length, models }));
+        res.end(JSON.stringify({ run_id: runId, total_cases: totalCases, cases_per_pack: cases.length, models }));
 
         (async () => {
           const run = runs.get(runId);
@@ -210,7 +216,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
             const client = createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs: conf.timeoutMs });
             const result = await runBenchmark({
               models,
-              cases: benchmarkData.cases,
+              cases,
               client,
               modelCosts: conf.modelCosts || {},
               concurrency: conf.concurrency || 4,

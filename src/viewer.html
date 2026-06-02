@@ -1034,6 +1034,25 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       if (btn) btn.disabled = checked < 1;
       var cl = document.getElementById('model-count');
       if (cl) cl.textContent = checked + ' selected · ' + total + ' models';
+      updateEstimate();
+    }
+
+    // Guardrail: show how many model requests a run will make before starting.
+    function updateEstimate() {
+      var est = document.getElementById('est-requests');
+      if (!est) return;
+      var models = document.querySelectorAll('#run-models input[type=checkbox]:checked').length;
+      var packSel = document.getElementById('sel-pack');
+      var opt = packSel && packSel.options[packSel.selectedIndex];
+      var packCases = opt ? Number(opt.dataset.cases || 0) : 0;
+      var maxInput = document.getElementById('inp-max-cases');
+      var max = maxInput ? parseInt(maxInput.value, 10) : NaN;
+      var cases = (Number.isFinite(max) && max > 0) ? Math.min(max, packCases) : packCases;
+      var requests = models * cases;
+      if (models === 0 || cases === 0) { est.textContent = ''; return; }
+      var warn = requests > 200 ? '  ⚠ large run' : '';
+      est.textContent = '≈ ' + requests + ' requests (' + models + ' models × ' + cases + ' cases)' + warn;
+      est.className = 'run-msg' + (requests > 200 ? ' a' : '');
     }
 
     async function discoverModels() {
@@ -1081,6 +1100,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         var payload = { models: models, benchmark: benchmark };
         if (endpoint) payload.base_url = endpoint;
         if (apikey)   payload.api_key  = apikey;
+        var maxCasesEl = document.getElementById('inp-max-cases');
+        var maxCases = maxCasesEl ? parseInt(maxCasesEl.value, 10) : NaN;
+        if (Number.isFinite(maxCases) && maxCases > 0) payload.max_test_cases = maxCases;
         var r = await fetch('/api/run', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1206,6 +1228,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
 
       var runModels = h('div', { id: 'run-models' });
       var packSel   = h('select', { id: 'sel-pack' });
+      var inpMaxCases = document.createElement('input');
+      inpMaxCases.type = 'number'; inpMaxCases.min = '1'; inpMaxCases.className = 'run-input';
+      inpMaxCases.id = 'inp-max-cases'; inpMaxCases.placeholder = 'all'; inpMaxCases.style.width = '70px';
       var runMsg    = h('span', { class: 'run-msg', id: 'run-msg' }, '');
       var btnRun    = h('button', { class: 'btn', id: 'btn-run-bench' }, 'Start Benchmark');
       btnRun.disabled = true;
@@ -1232,10 +1257,17 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         ),
         h('div', { class: 'run-row' }, btnDiscover, discoverMsg),
         runModels,
-        h('div', { class: 'run-row' }, h('span', { class: 'pick-label' }, 'Pack:'), packSel),
+        h('div', { class: 'run-row' },
+          h('span', { class: 'pick-label' }, 'Pack:'), packSel,
+          h('span', { class: 'pick-label' }, 'Max cases:'), inpMaxCases
+        ),
+        h('div', { class: 'run-row' }, h('span', { class: 'run-msg', id: 'est-requests' }, '')),
         h('div', { class: 'run-row' }, btnRun, runMsg),
         progressWrap
       );
+
+      packSel.addEventListener('change', updateEstimate);
+      inpMaxCases.addEventListener('input', updateEstimate);
 
       try {
         var conf = await fetchJSON('/api/config');
@@ -1252,9 +1284,11 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         packs.packs.forEach(function(p) {
           var opt = document.createElement('option');
           opt.value = p.path;
+          opt.dataset.cases = p.case_count;
           opt.textContent = p.name + ' (' + p.case_count + ' cases)';
           packSel.appendChild(opt);
         });
+        updateEstimate();
       } catch { /* silent — panel usable without config */ }
     }
 

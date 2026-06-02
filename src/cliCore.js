@@ -149,6 +149,15 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
   const config = validateConfig(mergeConfigs(fileConf, envConf));
   const client = createOpenAICompatibleClient(config);
 
+  // Guardrail: optionally cap cases per model, and surface the request count.
+  const maxCases = Number(env.ROUTEBENCH_MAX_TEST_CASES);
+  const cases = Number.isFinite(maxCases) && maxCases > 0
+    ? benchmark.cases.slice(0, Math.floor(maxCases))
+    : benchmark.cases;
+  const requestEstimate = config.models.length * cases.length;
+  console.log(`Running ~${requestEstimate} requests (${config.models.length} models × ${cases.length} cases).`);
+  if (requestEstimate > 200) console.log('Warning: large run — this may take a while and incur cost.');
+
   // Optional LLM-as-judge for open-ended categories. Off unless a judge model
   // is configured, so deterministic scoring stays the default.
   const judgeModel = (env.ROUTEBENCH_JUDGE_MODEL || '').trim();
@@ -161,7 +170,7 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
 
   const result = await runBenchmark({
     models: config.models,
-    cases: benchmark.cases,
+    cases,
     client,
     modelCosts: config.modelCosts,
     concurrency: config.concurrency,

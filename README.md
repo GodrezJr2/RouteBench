@@ -149,6 +149,10 @@ $env:ROUTEBENCH_JUDGE_CATEGORIES = "summarization_quality,indonesian_qa"
 
 The judge returns a 0–100 score with a one-line reason (stored as `judge_reason`). If the judge call fails, the run falls back to deterministic scoring for that case (`scored_by: "deterministic_fallback"`) instead of dropping it. Leave `ROUTEBENCH_JUDGE_MODEL` unset to keep runs fully deterministic.
 
+### Run guardrails
+
+`ROUTEBENCH_MAX_TEST_CASES` caps how many cases per model a run executes (useful for a quick smoke run or to limit spend). The CLI prints the estimated request count (`models × cases`) before each run and warns on large runs. The dashboard Run panel shows the same live estimate and exposes a **Max cases** input.
+
 ---
 
 ## Output files
