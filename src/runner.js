@@ -8,9 +8,12 @@ function calcCost(usage, costs) {
   return Number(cost.toFixed(6));
 }
 
-export async function runBenchmark({ models, cases, client, now = () => Date.now(), modelCosts = {} }) {
+export async function runBenchmark({ models, cases, client, now = () => Date.now(), modelCosts = {}, onProgress }) {
   const startedAt = new Date().toISOString();
   const results = [];
+  const totalCases = models.length * cases.length;
+  let doneCases = 0;
+  function tick() { doneCases += 1; if (onProgress) onProgress(doneCases, totalCases); }
 
   for (const model of models) {
     for (const testCase of cases) {
@@ -39,6 +42,7 @@ export async function runBenchmark({ models, cases, client, now = () => Date.now
           error_body_preview: error.body_preview ?? null,
           error_message: `model ${model} failed case ${testCase.id}: ${baseMessage}`,
         });
+        tick();
         continue;
       }
 
@@ -63,6 +67,7 @@ export async function runBenchmark({ models, cases, client, now = () => Date.now
           error_body_preview: null,
           error_message: `model ${model} returned empty output for case ${testCase.id}`,
         });
+        tick();
         continue;
       }
 
@@ -88,6 +93,7 @@ export async function runBenchmark({ models, cases, client, now = () => Date.now
           error_body_preview: null,
           error_message: `scorer failed for model ${model} case ${testCase.id}: ${scorerError.message}`,
         });
+        tick();
         continue;
       }
 
@@ -105,6 +111,7 @@ export async function runBenchmark({ models, cases, client, now = () => Date.now
         usage: response.usage ?? null,
         estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
       });
+      tick();
     }
   }
 

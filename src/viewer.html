@@ -96,6 +96,19 @@
 
     .empty { color: #475569; font-size: 13px; padding: 16px; }
     #loading { padding: 40px 0; text-align: center; color: #475569; font-size: 14px; }
+
+    .run-body { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .run-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .run-msg { font-size: 12px; }
+    .model-list { display: flex; flex-wrap: wrap; gap: 6px; }
+    .model-item { display: flex; align-items: center; gap: 5px; background: #162032; border-radius: 5px; padding: 4px 10px; }
+    .model-item input[type=checkbox] { cursor: pointer; accent-color: #3b82f6; }
+    .model-item label { font-size: 12px; color: #cbd5e1; cursor: pointer; }
+    .progress-track { height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; flex: 1; min-width: 160px; }
+    .progress-fill { height: 100%; background: #3b82f6; border-radius: 3px; transition: width 0.4s ease; width: 0%; }
+    .progress-label { font-size: 11px; color: #64748b; white-space: nowrap; }
+    .cfg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; flex-wrap: wrap; }
+    .cfg-key { color: #64748b; }
   </style>
 </head>
 <body>
@@ -119,6 +132,10 @@
   </header>
 
   <main>
+    <details id="run-panel" style="margin-bottom:20px">
+      <summary>Run Benchmark</summary>
+      <div id="run-body" class="run-body"></div>
+    </details>
     <div id="loading">Loading file list&#x2026;</div>
     <div id="content" style="display:none">
       <div id="sec-rec" class="section"></div>
@@ -212,6 +229,35 @@
       return out;
     }
 
+    var runPollId = null;
+
+    function base(f) { return f.split('/').pop().split('\\').pop(); }
+
+    function categorizeFiles(files) {
+      return {
+        result: files.filter(function(f) {
+          var n = base(f);
+          return !n.startsWith('routing') && !n.includes('compare') &&
+            !n.includes('generic') && !n.includes('litellm') && !n.includes('models');
+        }),
+        routing: files.filter(function(f) {
+          var n = base(f);
+          return (n.startsWith('routing') || n.includes('routing')) && !n.includes('generic') && !n.includes('compare');
+        }),
+        compare: files.filter(function(f) { return base(f).includes('compare'); }),
+      };
+    }
+
+    async function refreshFileSelects(autoSelectResult) {
+      var data = await fetchJSON('/api/files');
+      var cats = categorizeFiles(data.files);
+      populateSel('sel-result', cats.result, false, null);
+      populateSel('sel-routing', cats.routing, true, 'routing');
+      populateSel('sel-compare', cats.compare, true, 'compare');
+      if (autoSelectResult) document.getElementById('sel-result').value = autoSelectResult;
+      return cats;
+    }
+
     function populateSel(id, files, optional, hintWord) {
       var sel = document.getElementById(id);
       sel.replaceChildren();
@@ -247,27 +293,10 @@
     async function init() {
       var loadDiv = document.getElementById('loading');
       try {
-        var data = await fetchJSON('/api/files');
-        var files = data.files;
-        function base(f) { return f.split('/').pop().split('\\').pop(); }
-        var resultFiles = files.filter(function(f) {
-          var n = base(f);
-          return !n.startsWith('routing') && !n.includes('compare') &&
-            !n.includes('generic') && !n.includes('litellm') && !n.includes('models');
-        });
-        var routingFiles = files.filter(function(f) {
-          var n = base(f);
-          return (n.startsWith('routing') || n.includes('routing')) &&
-            !n.includes('generic') && !n.includes('compare');
-        });
-        var compareFiles = files.filter(function(f) { return base(f).includes('compare'); });
-
-        populateSel('sel-result', resultFiles, false, null);
-        populateSel('sel-routing', routingFiles, true, 'routing');
-        populateSel('sel-compare', compareFiles, true, 'compare');
-
+        var cats = await refreshFileSelects();
+        initRunPanel();
         loadDiv.textContent = '';
-        if (resultFiles.length > 0) {
+        if (cats.result.length > 0) {
           await load();
         } else {
           loadDiv.replaceChildren(
@@ -494,6 +523,182 @@
       }
 
       mount('sec-compare', parts);
+    }
+
+    function renderModelCheckboxes(models) {
+      var wrap = document.getElementById('run-models');
+      if (!wrap) return;
+      wrap.replaceChildren();
+      if (!models || models.length === 0) {
+        wrap.appendChild(h('p', { class: 'empty' }, 'No models available.'));
+        updateRunBtn();
+        return;
+      }
+      var list = h('div', { class: 'model-list' });
+      models.forEach(function(m) {
+        var id = m.id || String(m);
+        var cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.id = 'cb-' + id; cb.value = id; cb.checked = true;
+        cb.addEventListener('change', updateRunBtn);
+        var lbl = document.createElement('label');
+        lbl.htmlFor = 'cb-' + id;
+        lbl.appendChild(document.createTextNode(id));
+        if (m.owned_by && m.owned_by !== 'configured' && m.owned_by !== 'unknown') {
+          lbl.appendChild(document.createTextNode(' · ' + m.owned_by));
+        }
+        list.appendChild(h('div', { class: 'model-item' }, cb, lbl));
+      });
+      wrap.appendChild(list);
+      updateRunBtn();
+    }
+
+    function updateRunBtn() {
+      var btn = document.getElementById('btn-run-bench');
+      if (!btn) return;
+      var checked = document.querySelectorAll('#run-models input[type=checkbox]:checked');
+      btn.disabled = checked.length < 2;
+    }
+
+    async function discoverModels() {
+      var msg = document.getElementById('discover-msg');
+      if (msg) { msg.textContent = 'Discovering…'; msg.className = 'run-msg'; }
+      try {
+        var r = await fetch('/api/discover', { method: 'POST' });
+        var data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'discover failed');
+        renderModelCheckboxes(data.models);
+        if (msg) { msg.textContent = data.models.length + ' model(s) found'; msg.className = 'run-msg g'; }
+      } catch (e) {
+        if (msg) { msg.textContent = e.message; msg.className = 'run-msg r'; }
+      }
+    }
+
+    async function startBench() {
+      var checkboxes = document.querySelectorAll('#run-models input[type=checkbox]:checked');
+      var models = Array.from(checkboxes).map(function(cb) { return cb.value; });
+      var packSel = document.getElementById('sel-pack');
+      var benchmark = packSel ? packSel.value : 'benchmarks/phase0.json';
+      var runMsg = document.getElementById('run-msg');
+
+      if (models.length < 2) {
+        if (runMsg) { runMsg.textContent = 'Select at least 2 models.'; runMsg.className = 'run-msg r'; }
+        return;
+      }
+
+      if (runMsg) { runMsg.textContent = 'Starting…'; runMsg.className = 'run-msg'; }
+      var progressWrap = document.getElementById('run-progress-wrap');
+      if (progressWrap) progressWrap.style.display = 'none';
+
+      try {
+        var r = await fetch('/api/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ models: models, benchmark: benchmark }),
+        });
+        var data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'start failed');
+        if (progressWrap) progressWrap.style.display = 'flex';
+        updateRunProgress({ done: 0, total: data.total_cases });
+        if (runMsg) { runMsg.textContent = 'Running…'; runMsg.className = 'run-msg a'; }
+        pollRun(data.run_id);
+      } catch (e) {
+        if (runMsg) { runMsg.textContent = 'Error: ' + e.message; runMsg.className = 'run-msg r'; }
+      }
+    }
+
+    function updateRunProgress(progress) {
+      var fill = document.getElementById('run-progress-fill');
+      var label = document.getElementById('run-progress-label');
+      var total = progress.total || 0;
+      var done = progress.done || 0;
+      var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      if (fill) fill.style.width = pct + '%';
+      if (label) label.textContent = done + ' / ' + total + ' cases (' + pct + '%)';
+    }
+
+    function pollRun(runId) {
+      if (runPollId) clearInterval(runPollId);
+      runPollId = setInterval(async function() {
+        try {
+          var status = await fetchJSON('/api/run?id=' + runId);
+          if (status.progress) updateRunProgress(status.progress);
+          var runMsg = document.getElementById('run-msg');
+          if (status.status === 'done') {
+            clearInterval(runPollId); runPollId = null;
+            if (runMsg) { runMsg.textContent = 'Done!'; runMsg.className = 'run-msg g'; }
+            var progressWrap = document.getElementById('run-progress-wrap');
+            if (progressWrap) progressWrap.style.display = 'none';
+            if (status.result_path) {
+              try {
+                var cats = await refreshFileSelects(status.result_path);
+                document.getElementById('sel-result').value = status.result_path;
+                document.getElementById('run-panel').open = false;
+                await load();
+              } catch { /* ignore refresh errors */ }
+            }
+          } else if (status.status === 'error') {
+            clearInterval(runPollId); runPollId = null;
+            if (runMsg) { runMsg.textContent = 'Error: ' + (status.error || 'unknown'); runMsg.className = 'run-msg r'; }
+          }
+        } catch { /* ignore poll errors */ }
+      }, 1000);
+    }
+
+    async function initRunPanel() {
+      var body = document.getElementById('run-body');
+      if (!body) return;
+
+      var configRow = h('div', { class: 'cfg-row' }, span('cfg-key', 'Endpoint:'), span('', '…'));
+      var discoverMsg = h('span', { class: 'run-msg', id: 'discover-msg' }, '');
+      var btnDiscover = h('button', { class: 'btn', id: 'btn-discover' }, 'Discover Models');
+      btnDiscover.addEventListener('click', discoverModels);
+      var runModels = h('div', { id: 'run-models' });
+      var packSel = h('select', { id: 'sel-pack' });
+      var runMsg = h('span', { class: 'run-msg', id: 'run-msg' }, '');
+      var btnRun = h('button', { class: 'btn', id: 'btn-run-bench' }, 'Start Benchmark');
+      btnRun.disabled = true;
+      btnRun.addEventListener('click', startBench);
+      var progressFill = h('div', { class: 'progress-fill', id: 'run-progress-fill' });
+      var progressLabel = h('span', { class: 'progress-label', id: 'run-progress-label' }, '');
+      var progressWrap = h('div', { class: 'run-row', id: 'run-progress-wrap', style: 'display:none' },
+        h('div', { class: 'progress-track' }, progressFill),
+        progressLabel
+      );
+
+      body.replaceChildren(
+        h('div', { class: 'section' }, configRow),
+        h('div', { class: 'run-row' }, btnDiscover, discoverMsg),
+        runModels,
+        h('div', { class: 'run-row' },
+          h('span', { class: 'pick-label' }, 'Pack:'), packSel
+        ),
+        h('div', { class: 'run-row' }, btnRun, runMsg),
+        progressWrap
+      );
+
+      try {
+        var conf = await fetchJSON('/api/config');
+        var endpointText = conf.base_url ? conf.base_url : 'not configured';
+        var keyText = conf.has_api_key ? '✓ key set' : '✗ no key';
+        configRow.replaceChildren(
+          span('cfg-key', 'Endpoint: '),
+          span(conf.base_url ? 'b' : 'r', endpointText),
+          txt('  '),
+          span(conf.has_api_key ? 'g' : 'r', keyText)
+        );
+        if (conf.models && conf.models.length > 0) {
+          renderModelCheckboxes(conf.models.map(function(id) { return { id: id, owned_by: 'configured' }; }));
+        }
+
+        var packs = await fetchJSON('/api/benchmarks');
+        packSel.replaceChildren();
+        packs.packs.forEach(function(p) {
+          var opt = document.createElement('option');
+          opt.value = p.path;
+          opt.textContent = p.name + ' (' + p.case_count + ' cases)';
+          packSel.appendChild(opt);
+        });
+      } catch { /* config load failure is silent — panel still usable */ }
     }
 
     document.getElementById('btn-load').addEventListener('click', load);

@@ -1,3 +1,32 @@
+# RouteBench v1.1.0 Release Notes
+
+## What's new in v1.1.0
+
+### Interactive local dashboard (Phase 1.1)
+
+`npm run view` now opens a full interactive dashboard — not just a result viewer.
+
+**Run panel** — new collapsible section in the dashboard:
+- Shows configured endpoint URL and whether an API key is set (key itself is never exposed)
+- **Discover Models** button — calls the endpoint's `/models` API and lists all available models as checkboxes
+- Select which models to benchmark (at least 2 required to start)
+- Benchmark pack selector — lists available packs in `benchmarks/` with case counts
+- **Start Benchmark** button — runs the full benchmark on the server, streams progress (case count + percentage bar), and auto-loads the result when done
+- Handles errors (endpoint not configured, network failure, etc.) with inline messages
+
+**New API endpoints** served by the viewer at `127.0.0.1:3001`:
+- `GET /api/config` — returns endpoint config summary (base URL, key presence, models, timeout); never returns the raw API key
+- `GET /api/benchmarks` — lists benchmark packs with metadata
+- `POST /api/discover` — proxies model discovery to the configured endpoint
+- `POST /api/run` — starts a benchmark run, returns a run ID; run state is in-memory only
+- `GET /api/run?id=...` — returns run status, progress, and result path when complete
+
+**Progress tracking** — `runBenchmark()` now accepts an `onProgress(done, total)` callback that fires after each model×case pair completes.
+
+All constraints from Phase 1.0 still apply: local-first, single-user, no auth, no database, no SaaS, no LLM-as-judge, no architecture changes to the CLI core.
+
+---
+
 # RouteBench v0.7.0 Release Notes
 
 ## What is RouteBench
