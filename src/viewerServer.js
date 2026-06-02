@@ -10,6 +10,7 @@ import { createOpenAICompatibleClient } from './openaiClient.js';
 import { renderMarkdownReport } from './report.js';
 import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
+import { resultToHistoryEntry } from './history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const HTML_PAGE = readFileSync(join(__dirname, 'viewer.html'), 'utf8');
@@ -96,7 +97,7 @@ function readBody(req) {
   });
 }
 
-export function createViewerServer({ port = 3001, resultsDir = 'results' } = {}) {
+export function createViewerServer({ port = 3001, resultsDir = 'results', history = null } = {}) {
   const runs = new Map();
 
   const server = createServer(async (req, res) => {
@@ -218,6 +219,11 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
             const redactValues = [apiKey, conf.apiKey].filter(Boolean);
             await writeFile(outputPath, redactText(`${JSON.stringify(result, null, 2)}\n`, redactValues), 'utf8');
             if (run) { run.status = 'done'; run.result_path = outputPath; }
+            if (history) {
+              try {
+                history.save(resultToHistoryEntry(result, { run_id: runId, result_path: outputPath, benchmark: benchmarkPath }));
+              } catch { /* history save failure must not break the run */ }
+            }
           } catch (err) {
             if (run) { run.status = 'error'; run.error = err.message; }
           }
@@ -238,6 +244,19 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
         res.end(JSON.stringify(run));
         return;
       }
+    }
+
+    if (url.pathname === '/api/history') {
+      if (req.method === 'DELETE') {
+        const id = url.searchParams.get('id');
+        if (history && id) history.remove(id);
+        res.writeHead(204); res.end();
+        return;
+      }
+      const runs = history ? history.list(200) : [];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ runs }));
+      return;
     }
 
     if (url.pathname === '/api/export') {

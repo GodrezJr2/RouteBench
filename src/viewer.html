@@ -240,6 +240,24 @@ pre {
 }
 #loading:empty { display: none; }
 
+/* ── History panel ────────────────────────────────────────── */
+#history-panel summary { justify-content: space-between; }
+.history-count { font-size: 11px; font-weight: 400; color: var(--t3); margin-left: auto; }
+.history-del-btn {
+  font-size: 10px; padding: 1px 6px; background: none;
+  border: 1px solid var(--bd); border-radius: var(--rs);
+  color: var(--t3); cursor: pointer; font-family: var(--font);
+  transition: color 120ms, border-color 120ms;
+}
+.history-del-btn:hover { color: var(--red); border-color: var(--red); }
+.history-load-btn {
+  font-size: 10px; padding: 1px 8px; background: var(--blue-d);
+  border: 1px solid var(--blue); border-radius: var(--rs);
+  color: var(--blue); cursor: pointer; font-family: var(--font);
+  transition: background 120ms;
+}
+.history-load-btn:hover { background: var(--blue); color: #fff; }
+
 /* ── Model search ─────────────────────────────────────────── */
 .model-search-row { margin-bottom: 8px; }
 #model-search { width: 100%; max-width: 320px; }
@@ -302,6 +320,10 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
   </header>
 
   <main>
+    <details id="history-panel">
+      <summary>Run History <span class="history-count" id="history-count"></span></summary>
+      <div id="history-body" class="details-body"></div>
+    </details>
     <details id="run-panel">
       <summary>Run Benchmark</summary>
       <div id="run-body" class="run-body"></div>
@@ -571,10 +593,82 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       return r.json();
     }
 
+    // ── History panel ─────────────────────────────────────────
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      try {
+        var d = new Date(iso);
+        return d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0') + ' ' +
+          String(d.getHours()).padStart(2, '0') + ':' +
+          String(d.getMinutes()).padStart(2, '0');
+      } catch { return iso; }
+    }
+
+    async function loadHistory() {
+      var body  = document.getElementById('history-body');
+      var count = document.getElementById('history-count');
+      if (!body) return;
+      try {
+        var data = await fetchJSON('/api/history');
+        var runs = data.runs || [];
+        if (count) count.textContent = runs.length > 0 ? '(' + runs.length + ')' : '';
+        renderHistory(runs, body);
+      } catch { /* history load failure is non-critical */ }
+    }
+
+    function renderHistory(runs, body) {
+      if (!runs || runs.length === 0) {
+        body.replaceChildren(h('p', { class: 'empty' }, 'No history yet. Complete a benchmark run to populate this list.'));
+        return;
+      }
+
+      var histCols = [
+        { key: 'started_at', label: 'Date', get: function(r) { return r.started_at || ''; },
+          render: function(r) { return fmtDate(r.started_at); }, tdStyle: 'white-space:nowrap;font-variant-numeric:tabular-nums' },
+        { key: 'primary_model', label: 'Primary', get: function(r) { return r.primary_model || ''; },
+          render: function(r) { return r.primary_model ? span('b', r.primary_model) : txt('—'); } },
+        { key: 'top_score', label: 'Top Score', numeric: true,
+          get: function(r) { var v = Object.values(r.scores || {}); return v.length ? Math.max.apply(null, v) : null; },
+          render: function(r) {
+            var v = Object.values(r.scores || {}); var s = v.length ? Math.max.apply(null, v) : null;
+            return s != null ? span(scoreColor(s), String(s)) : txt('—');
+          } },
+        { key: 'models', label: 'Models', sortable: false, get: function(r) { return (r.models || []).join(', '); },
+          render: function(r) { return (r.models || []).join(', '); },
+          tdStyle: 'font-family:var(--mono);font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' },
+        { key: 'total_cost', label: 'Cost', numeric: true, get: function(r) { return r.total_cost; },
+          render: function(r) { return r.total_cost != null ? '$' + r.total_cost.toFixed(6) : txt('—'); } },
+        { key: '_actions', label: '', sortable: false, get: function() { return ''; },
+          render: function(r) {
+            var loadBtn = h('button', { class: 'history-load-btn' }, 'Load');
+            loadBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              if (!r.result_path) return;
+              var sel = document.getElementById('sel-result');
+              if (sel) { sel.value = r.result_path; load(); }
+              document.getElementById('history-panel').open = false;
+            });
+            var delBtn = h('button', { class: 'history-del-btn' }, 'Remove');
+            delBtn.addEventListener('click', async function(e) {
+              e.stopPropagation();
+              await fetch('/api/history?id=' + encodeURIComponent(r.run_id), { method: 'DELETE' });
+              await loadHistory();
+            });
+            return h('span', null, loadBtn, txt(' '), delBtn);
+          }, tdStyle: 'white-space:nowrap' },
+      ];
+
+      body.replaceChildren(makeSortableTable(histCols, runs, { sortKey: 'started_at', sortDir: 'desc' }));
+    }
+
     async function init() {
       var loadDiv = document.getElementById('loading');
       try {
         var cats = await refreshFileSelects();
+        loadHistory();
         initRunPanel();
         loadDiv.textContent = '';
         if (cats.result.length > 0) {
@@ -1014,6 +1108,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
                 document.getElementById('sel-result').value = status.result_path;
                 document.getElementById('run-panel').open = false;
                 await load();
+                loadHistory();
               } catch { /* ignore refresh errors */ }
             }
           } else if (status.status === 'error') {

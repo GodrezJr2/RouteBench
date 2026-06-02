@@ -90,6 +90,7 @@ test('HTML_PAGE is a non-empty HTML string with required sections', () => {
   assert.ok(HTML_PAGE.includes('/api/file'));
   assert.ok(HTML_PAGE.includes('/api/config'));
   assert.ok(HTML_PAGE.includes('/api/run'));
+  assert.ok(HTML_PAGE.includes('/api/history'));
   assert.ok(HTML_PAGE.length > 2000);
 });
 
