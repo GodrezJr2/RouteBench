@@ -137,6 +137,18 @@ Use only for trusted local endpoints. Prefer trusting the cert via OS/Node trust
 
 Environment variables (`ROUTEBENCH_BASE_URL`, `ROUTEBENCH_API_KEY`, `ROUTEBENCH_MODELS`, `ROUTEBENCH_TIMEOUT_MS`, `ROUTEBENCH_CONCURRENCY`) override config file values. `OPENAI_BASE_URL` and `OPENAI_API_KEY` also work as fallbacks.
 
+### Optional LLM-as-judge
+
+Open-ended categories (summarization, Indonesian QA) are scored by deterministic string matching by default. To score them semantically, set a judge model:
+
+```powershell
+$env:ROUTEBENCH_JUDGE_MODEL = "gh/gpt-4o-mini"
+# optional: override which categories the judge handles (comma-separated)
+$env:ROUTEBENCH_JUDGE_CATEGORIES = "summarization_quality,indonesian_qa"
+```
+
+The judge returns a 0–100 score with a one-line reason (stored as `judge_reason`). If the judge call fails, the run falls back to deterministic scoring for that case (`scored_by: "deterministic_fallback"`) instead of dropping it. Leave `ROUTEBENCH_JUDGE_MODEL` unset to keep runs fully deterministic.
+
 ---
 
 ## Output files

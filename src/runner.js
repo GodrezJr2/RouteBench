@@ -15,7 +15,7 @@ function calcCost(usage, costs) {
 }
 
 // Run a single model/case pair and return one result row.
-async function runCase({ model, testCase, client, now, modelCosts }) {
+async function runCase({ model, testCase, client, now, modelCosts, judge, judgeCategories }) {
   const category = testCase.metadata?.category ?? 'uncategorized';
   const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category };
   const start = now();
@@ -61,9 +61,27 @@ async function runCase({ model, testCase, client, now, modelCosts }) {
     };
   }
 
+  const useJudge = judge && judgeCategories?.includes(category);
   let scored;
+  let scoredBy = 'deterministic';
+  let judgeReason = null;
+  let judgeError = null;
   try {
-    scored = scoreOutput(response.output, testCase);
+    if (useJudge) {
+      try {
+        scored = await judge(testCase, response.output);
+        scoredBy = 'judge';
+        judgeReason = scored.judge_reason ?? null;
+      } catch (judgeFailure) {
+        // Judge failed — fall back to the deterministic scorer rather than
+        // dropping the case, and record why the judge didn't run.
+        scored = scoreOutput(response.output, testCase);
+        scoredBy = 'deterministic_fallback';
+        judgeError = judgeFailure.message;
+      }
+    } else {
+      scored = scoreOutput(response.output, testCase);
+    }
   } catch (scorerError) {
     return {
       ...base,
@@ -89,6 +107,9 @@ async function runCase({ model, testCase, client, now, modelCosts }) {
     score: scored.score,
     passed: scored.passed,
     score_reason: scored.reason,
+    scored_by: scoredBy,
+    judge_reason: judgeReason,
+    judge_error: judgeError,
     latency_ms: latencyMs,
     usage: response.usage ?? null,
     estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
@@ -103,6 +124,8 @@ export async function runBenchmark({
   modelCosts = {},
   onProgress,
   concurrency = 4,
+  judge = null,
+  judgeCategories = [],
 }) {
   const startedAt = new Date().toISOString();
 
@@ -124,7 +147,7 @@ export async function runBenchmark({
     while (next < tasks.length) {
       const task = tasks[next];
       next += 1;
-      results[task.order] = await runCase({ model: task.model, testCase: task.testCase, client, now, modelCosts });
+      results[task.order] = await runCase({ model: task.model, testCase: task.testCase, client, now, modelCosts, judge, judgeCategories });
       done += 1;
       if (onProgress) onProgress(done, total);
     }

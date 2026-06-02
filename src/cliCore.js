@@ -12,6 +12,7 @@ import { createPromptfooConfig } from './promptfoo.js';
 import { renderMarkdownReport } from './report.js';
 import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
+import { createJudge, DEFAULT_JUDGE_CATEGORIES } from './judge.js';
 
 const EMPTY_FILE_CONF = { baseUrl: '', apiKey: '', models: [], timeoutMs: 0, modelCosts: {} };
 
@@ -147,7 +148,26 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
   const envConf = loadConfigFromEnv(env);
   const config = validateConfig(mergeConfigs(fileConf, envConf));
   const client = createOpenAICompatibleClient(config);
-  const result = await runBenchmark({ models: config.models, cases: benchmark.cases, client, modelCosts: config.modelCosts, concurrency: config.concurrency });
+
+  // Optional LLM-as-judge for open-ended categories. Off unless a judge model
+  // is configured, so deterministic scoring stays the default.
+  const judgeModel = (env.ROUTEBENCH_JUDGE_MODEL || '').trim();
+  const judge = judgeModel ? createJudge({ client, judgeModel }) : null;
+  const judgeCategories = judgeModel
+    ? (env.ROUTEBENCH_JUDGE_CATEGORIES
+        ? String(env.ROUTEBENCH_JUDGE_CATEGORIES).split(',').map((c) => c.trim()).filter(Boolean)
+        : DEFAULT_JUDGE_CATEGORIES)
+    : [];
+
+  const result = await runBenchmark({
+    models: config.models,
+    cases: benchmark.cases,
+    client,
+    modelCosts: config.modelCosts,
+    concurrency: config.concurrency,
+    judge,
+    judgeCategories,
+  });
   const redact = [config.apiKey];
   await writeJson(outputPath, result, { redact });
   if (reportPath) await writeReportFromResult({ result, outputPath: reportPath, redact });
