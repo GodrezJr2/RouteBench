@@ -44,20 +44,69 @@ function extractFirstJsonObject(text) {
   throw new Error('provider response contained incomplete JSON');
 }
 
-async function parseProviderJson(response) {
-  const body = await response.text();
+// Reasoning / GPT-5+ models reject the temperature parameter. Skip it
+// preemptively so we never trigger the provider's error (and any error-cooldown
+// on routers like 9router that cache the failure for several seconds).
+function modelRejectsTemperature(model) {
+  return /gpt-[5-9]|gpt-oss|\bo[1-9]\b|codex|reasoning/i.test(String(model));
+}
+
+// Parse an SSE event stream (`data: {chunk}\n\n … data: [DONE]`) into chunk objects.
+function parseSseChunks(text) {
+  const chunks = [];
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line.startsWith('data:')) continue;
+    const payload = line.slice(5).trim();
+    if (!payload || payload === '[DONE]') continue;
+    try {
+      chunks.push(JSON.parse(payload));
+    } catch {
+      // skip keep-alive / non-JSON lines
+    }
+  }
+  return chunks;
+}
+
+// Normalize either a standard chat-completion JSON body or a streamed SSE body
+// into { output, usage }. Handles 9router's trailing `data: [DONE]` marker.
+function parseChatCompletion(text) {
+  if (text.trimStart().startsWith('data:')) {
+    const chunks = parseSseChunks(text);
+    if (chunks.length === 0) {
+      throw providerError('provider returned an empty SSE stream', {
+        type: 'malformed_provider_json',
+        body_preview: text.slice(0, 500),
+      });
+    }
+    let output = '';
+    let usage = null;
+    for (const chunk of chunks) {
+      const choice = chunk.choices?.[0];
+      if (choice?.delta?.content) output += choice.delta.content;
+      else if (choice?.message?.content) output += choice.message.content;
+      if (chunk.usage) usage = chunk.usage;
+    }
+    return { output, usage };
+  }
+
+  let json;
   try {
-    return JSON.parse(body);
+    json = JSON.parse(text);
   } catch (firstError) {
     try {
-      return JSON.parse(extractFirstJsonObject(body));
+      json = JSON.parse(extractFirstJsonObject(text));
     } catch {
       throw providerError(`provider returned malformed JSON: ${firstError.message}`, {
         type: 'malformed_provider_json',
-        body_preview: body.slice(0, 500),
+        body_preview: text.slice(0, 500),
       });
     }
   }
+  return {
+    output: json.choices?.[0]?.message?.content ?? '',
+    usage: json.usage ?? null,
+  };
 }
 
 export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetchImpl = fetch }) {
@@ -65,23 +114,45 @@ export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetch
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    try {
-      const response = await fetchImpl(joinUrl(baseUrl, '/chat/completions'), {
+    const sendRequest = (includeTemperature) => {
+      const payload = {
+        model,
+        messages: [
+          { role: 'system', content: testCase.system },
+          { role: 'user', content: testCase.prompt },
+        ],
+      };
+      if (includeTemperature) payload.temperature = 0;
+      return fetchImpl(joinUrl(baseUrl, '/chat/completions'), {
         method: 'POST',
         headers: {
           authorization: `Bearer ${apiKey}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({
-          model,
-          temperature: 0,
-          messages: [
-            { role: 'system', content: testCase.system },
-            { role: 'user', content: testCase.prompt },
-          ],
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
+    };
+
+    try {
+      const skipTemperature = modelRejectsTemperature(model);
+      let response = await sendRequest(!skipTemperature);
+
+      // Fallback for models we didn't preemptively flag: if the provider
+      // rejects temperature, retry once without it. (On routers that cache the
+      // error this may still fail, which is why we also skip preemptively.)
+      if (response.status === 400 && !skipTemperature) {
+        const body = await response.text();
+        if (/temperature/i.test(body) && /unsupported|not supported/i.test(body)) {
+          response = await sendRequest(false);
+        } else {
+          throw providerError(`provider returned ${response.status}: ${body.slice(0, 500)}`, {
+            type: 'provider_http_error',
+            status: response.status,
+            body_preview: body.slice(0, 500),
+          });
+        }
+      }
 
       if (!response.ok) {
         const body = await response.text();
@@ -92,11 +163,8 @@ export function createOpenAICompatibleClient({ baseUrl, apiKey, timeoutMs, fetch
         });
       }
 
-      const json = await parseProviderJson(response);
-      return {
-        output: json.choices?.[0]?.message?.content ?? '',
-        usage: json.usage ?? null,
-      };
+      const body = await response.text();
+      return parseChatCompletion(body);
     } catch (error) {
       if (error.name === 'AbortError') {
         throw providerError(`provider request timed out after ${timeoutMs}ms`, { type: 'timeout' });
