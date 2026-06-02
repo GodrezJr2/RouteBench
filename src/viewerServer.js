@@ -170,9 +170,9 @@ export function createViewerServer({ port = 3001, resultsDir = 'results' } = {})
         const models = Array.isArray(body.models) ? body.models.map(String).filter(Boolean) : [];
         const benchmarkPath = typeof body.benchmark === 'string' && body.benchmark ? body.benchmark : 'benchmarks/phase0.json';
 
-        if (models.length < 2) {
+        if (models.length < 1) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'at least 2 models required' }));
+          res.end(JSON.stringify({ error: 'at least 1 model required' }));
           return;
         }
 

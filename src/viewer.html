@@ -685,7 +685,7 @@ pre {
     function updateRunBtn() {
       var btn = document.getElementById('btn-run-bench');
       if (!btn) return;
-      btn.disabled = document.querySelectorAll('#run-models input[type=checkbox]:checked').length < 2;
+      btn.disabled = document.querySelectorAll('#run-models input[type=checkbox]:checked').length < 1;
     }
 
     async function discoverModels() {
@@ -720,8 +720,8 @@ pre {
       var apikey     = (document.getElementById('inp-apikey')   || {}).value || '';
       var runMsg     = document.getElementById('run-msg');
 
-      if (models.length < 2) {
-        if (runMsg) { runMsg.textContent = 'Select at least 2 models.'; runMsg.className = 'run-msg r'; }
+      if (models.length < 1) {
+        if (runMsg) { runMsg.textContent = 'Select at least 1 model.'; runMsg.className = 'run-msg r'; }
         return;
       }
 
