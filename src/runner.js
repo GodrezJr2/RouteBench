@@ -5,6 +5,7 @@ import {
   aggregateByCategory,
   recommendByCategory,
 } from './scoring.js';
+import { generateDiagnosis } from './diagnosis.js';
 
 function calcCost(usage, costs) {
   if (!usage || !costs) return null;
@@ -162,6 +163,7 @@ export async function runBenchmark({
   const recommendation = recommendModel(aggregate);
   const categoryAggregate = aggregateByCategory(results);
   const categoryRouting = recommendByCategory(categoryAggregate);
+  const diagnosis = generateDiagnosis({ aggregate, categoryAggregate, categoryRouting });
 
   return {
     schema_version: 'routebench.phase0.v1',
@@ -174,5 +176,6 @@ export async function runBenchmark({
     recommendation,
     category_aggregate: categoryAggregate,
     category_routing: categoryRouting,
+    diagnosis,
   };
 }

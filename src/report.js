@@ -52,6 +52,15 @@ export function renderMarkdownReport(result) {
   });
   lines.push('');
 
+  const diagnosis = result.diagnosis ?? [];
+  if (diagnosis.length > 0) {
+    lines.push('## Diagnosis', '');
+    for (const d of diagnosis) {
+      lines.push(`- **${escapeCell(d.model)}** — ${escapeCell(d.text)}`);
+    }
+    lines.push('');
+  }
+
   const categoryRouting = result.category_routing ?? [];
   if (categoryRouting.length > 0) {
     lines.push('## Per-Category Routing', '');

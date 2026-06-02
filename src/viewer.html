@@ -332,6 +332,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
     <div id="content" style="display:none">
       <div id="sec-rec"     class="section"></div>
       <div id="sec-models"  class="section"></div>
+      <div id="sec-diag"    class="section"></div>
       <div id="sec-catroute" class="section"></div>
       <div id="sec-cats"    class="section"></div>
       <div id="sec-failed"  class="section"></div>
@@ -699,7 +700,7 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         ]);
         var resultData = results[0], routingData = results[1], compareData = results[2];
         if (resultData) renderResult(resultData);
-        else ['sec-rec', 'sec-models', 'sec-catroute', 'sec-cats', 'sec-failed'].forEach(function(id) { document.getElementById(id).replaceChildren(); });
+        else ['sec-rec', 'sec-models', 'sec-diag', 'sec-catroute', 'sec-cats', 'sec-failed'].forEach(function(id) { document.getElementById(id).replaceChildren(); });
         if (routingData) renderRouting(routingData);
         else document.getElementById('sec-routing').replaceChildren();
         if (compareData) renderCompare(compareData);
@@ -768,6 +769,19 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       }
       mount('sec-models', [h('h2', null, 'Ranked Models'),
         makeSortableTable(modelCols, ranked, { sortKey: 'recommendation_score', sortDir: 'desc' })]);
+
+      var diagnosis = data.diagnosis || [];
+      if (diagnosis.length > 0) {
+        var diagItems = diagnosis.map(function(d) {
+          return h('div', { class: 'rec-box', style: 'margin-bottom:10px' },
+            h('div', null, h('strong', null, d.model), txt('  '), badge(scoreColor(d.overall_score), d.band)),
+            h('div', { class: 'rec-reason', style: 'margin-top:6px' }, d.text)
+          );
+        });
+        mount('sec-diag', [h('h2', null, 'Diagnosis')].concat(diagItems));
+      } else {
+        document.getElementById('sec-diag').replaceChildren();
+      }
 
       var catRouting = data.category_routing || [];
       if (catRouting.length > 0) {
