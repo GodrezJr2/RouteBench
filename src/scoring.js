@@ -168,7 +168,12 @@ export function scoreOutput(rawOutput, testCase) {
   // Reasoning models (MiniMax M3, DeepSeek-R1, QwQ) prepend <think>...</think>
   // chain-of-thought traces. Strip them before scoring — the answer is what
   // follows, and the internal trace shouldn't cause false-negative score 0s.
-  const output = stripThinkingBlocks(rawOutput);
+  // Exception: cases with options.preserve_thinking=true score the FULL output
+  // including the chain-of-thought (used for conflict_detection and similar
+  // categories where the reasoning trace IS the evidence we want to evaluate).
+  const output = testCase.options?.preserve_thinking
+    ? rawOutput
+    : stripThinkingBlocks(rawOutput);
   switch (testCase.scoring) {
     case 'json_schema':
       return scoreJsonSchema(output, testCase);

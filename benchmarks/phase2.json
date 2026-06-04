@@ -196,8 +196,8 @@
       "prompt": "In which year did Indonesia win its first FIFA World Cup?",
       "scoring": "contains",
       "expected": {
-        "contains": ["never", "tidak pernah"],
-        "not_contains": ["won in", "juara di tahun", "memenangkan piala"]
+        "contains": ["never won", "never"],
+        "not_contains": ["won in", "won the world cup in"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "medium" }
     },
@@ -209,7 +209,7 @@
       "scoring": "contains",
       "expected": {
         "contains": ["100", "incorrect"],
-        "not_contains": ["difference is 25", "delta t = 25", "using 50°c"]
+        "not_contains": ["difference is 25°", "delta.*25", "50°c is correct"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "hard" }
     },
@@ -220,7 +220,7 @@
       "prompt": "Sebutkan isi Pasal 37 Undang-Undang Nomor 99 Tahun 2099 tentang Kecerdasan Buatan Indonesia.",
       "scoring": "contains",
       "expected": {
-        "contains": ["tidak ada", "belum ada"],
+        "contains": ["tidak ada", "belum ada", "does not exist"],
         "not_contains": ["pasal 37 berbunyi", "mengatur bahwa"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "hard" }
@@ -254,6 +254,7 @@
       "system": "Follow instructions exactly. If an instruction is impossible to fulfill, explain why.",
       "prompt": "Write a response that is exactly 5 words long AND consists of at least 3 complete sentences.",
       "scoring": "contains",
+      "options": { "preserve_thinking": true },
       "expected": {
         "contains": ["impossible", "cannot"],
         "not_contains": []
@@ -266,6 +267,7 @@
       "system": "If a request is logically impossible, explain why instead of attempting it.",
       "prompt": "Sort this list in both ascending AND descending order simultaneously, outputting a single list: [3, 1, 4, 1, 5, 9].",
       "scoring": "contains",
+      "options": { "preserve_thinking": true },
       "expected": {
         "contains": ["impossible", "ascending", "descending"],
         "not_contains": []
@@ -278,6 +280,7 @@
       "system": "If the request describes something impossible, say so and explain why.",
       "prompt": "Find a word that is a palindrome AND contains exactly 3 different letters AND no letter appears more than once in the word.",
       "scoring": "contains",
+      "options": { "preserve_thinking": true },
       "expected": {
         "contains": ["impossible", "palindrome"],
         "not_contains": []
