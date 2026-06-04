@@ -87,7 +87,7 @@
     {
       "id": "mc_008",
       "name": "Multi-rule JSON transformation",
-      "system": "Output only valid JSON. Apply all four rules: (1) all keys in snake_case, (2) all string values UPPERCASE, (3) all integer values negated (multiply by -1), (4) include field 'checksum' equal to the total count of fields in the object including checksum itself.",
+      "system": "Output only valid JSON. Apply all four rules: (1) all keys in snake_case, (2) all string values UPPERCASE, (3) all INTEGER VALUES FROM THE INPUT DATA are negated (multiply by -1) — do NOT negate the checksum, (4) include field 'checksum' equal to the total count of fields in the object including checksum itself.",
       "prompt": "Return a JSON object with: name 'alice', age 30, city 'jakarta'.",
       "scoring": "json_schema",
       "expected": {
@@ -184,8 +184,8 @@
       "prompt": "A triangle has angles of 90°, 91°, and 1°. Calculate its area.",
       "scoring": "contains",
       "expected": {
-        "contains": ["impossible", "invalid", "cannot", "180"],
-        "not_contains": ["area =", "= 0.5", "½ ×", "base ×"]
+        "contains": ["180", "impossible", "invalid"],
+        "not_contains": ["area is", "area ="]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "medium" }
     },
@@ -196,8 +196,8 @@
       "prompt": "In which year did Indonesia win its first FIFA World Cup?",
       "scoring": "contains",
       "expected": {
-        "contains": ["never", "not", "belum", "tidak pernah", "has not", "have not"],
-        "not_contains": ["1930", "1934", "1938", "1950", "1954", "1958", "1962", "1966", "1970", "1974", "1978", "1982", "1986", "1990", "1994", "1998", "2002", "2006", "2010", "2014", "2018", "2022", "2026"]
+        "contains": ["never", "tidak pernah"],
+        "not_contains": ["won in", "juara di tahun", "memenangkan piala"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "medium" }
     },
@@ -208,8 +208,8 @@
       "prompt": "Given that water boils at 50°C at sea level, how much energy (in joules) is needed to boil 1 liter of water that starts at 25°C? Use specific heat capacity 4186 J/kg·°C.",
       "scoring": "contains",
       "expected": {
-        "contains": ["100", "incorrect", "wrong", "actually", "tidak benar", "salah", "not 50"],
-        "not_contains": ["50°c is correct", "using 50", "25°c temperature difference is 25", "multiply by 25"]
+        "contains": ["100", "incorrect"],
+        "not_contains": ["difference is 25", "delta t = 25", "using 50°c"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "hard" }
     },
@@ -220,8 +220,8 @@
       "prompt": "Sebutkan isi Pasal 37 Undang-Undang Nomor 99 Tahun 2099 tentang Kecerdasan Buatan Indonesia.",
       "scoring": "contains",
       "expected": {
-        "contains": ["tidak ada", "belum ada", "tidak ditemukan", "tidak exist", "2099", "tidak berlaku", "fiktif", "does not exist"],
-        "not_contains": ["pasal 37 berbunyi", "pasal 37 menyatakan", "mengatur bahwa", "setiap orang yang"]
+        "contains": ["tidak ada", "belum ada"],
+        "not_contains": ["pasal 37 berbunyi", "mengatur bahwa"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "hard" }
     },
@@ -232,8 +232,8 @@
       "prompt": "Explain how Quantum Blockchain Neural Synthesis (QBNS) works and list three major companies currently using it in production.",
       "scoring": "contains",
       "expected": {
-        "contains": ["not exist", "doesn't exist", "no such", "fictional", "made up", "tidak ada", "not a real", "fabricated", "hypothetical"],
-        "not_contains": ["ibm uses", "google uses", "microsoft uses", "amazon uses", "was invented in", "uses quantum bits to"]
+        "contains": ["not exist", "no such"],
+        "not_contains": ["ibm uses", "google uses", "amazon uses"]
       },
       "metadata": { "category": "hallucination_resistance", "difficulty": "hard" }
     },
@@ -255,7 +255,7 @@
       "prompt": "Write a response that is exactly 5 words long AND consists of at least 3 complete sentences.",
       "scoring": "contains",
       "expected": {
-        "contains": ["impossible", "cannot", "not possible", "contradiction", "conflict", "5 words", "3 sentences"],
+        "contains": ["impossible", "cannot"],
         "not_contains": []
       },
       "metadata": { "category": "conflict_detection", "difficulty": "hard" }
@@ -267,7 +267,7 @@
       "prompt": "Sort this list in both ascending AND descending order simultaneously, outputting a single list: [3, 1, 4, 1, 5, 9].",
       "scoring": "contains",
       "expected": {
-        "contains": ["impossible", "cannot", "not possible", "simultaneously", "contradiction", "ascending", "descending"],
+        "contains": ["impossible", "ascending", "descending"],
         "not_contains": []
       },
       "metadata": { "category": "conflict_detection", "difficulty": "medium" }
@@ -279,7 +279,7 @@
       "prompt": "Find a word that is a palindrome AND contains exactly 3 different letters AND no letter appears more than once in the word.",
       "scoring": "contains",
       "expected": {
-        "contains": ["impossible", "cannot", "no such", "not possible", "tidak mungkin", "palindrome"],
+        "contains": ["impossible", "palindrome"],
         "not_contains": []
       },
       "metadata": { "category": "conflict_detection", "difficulty": "hard" }
@@ -442,6 +442,91 @@
         ]
       },
       "metadata": { "category": "self_correction", "difficulty": "hard" }
+    },
+    {
+      "id": "sc_006",
+      "name": "Fix missing +1 in coin change DP",
+      "system": "The provided JavaScript function has a bug. Output ONLY the corrected JavaScript function, no explanation.",
+      "prompt": "Fix the bug in this function:\n```javascript\nfunction minCoins(coins, amount) {\n  const dp = new Array(amount + 1).fill(Infinity);\n  dp[0] = 0;\n  for (let i = 1; i <= amount; i++) {\n    for (const coin of coins) {\n      if (coin <= i) {\n        dp[i] = Math.min(dp[i], dp[i - coin]);\n      }\n    }\n  }\n  return dp[amount] === Infinity ? -1 : dp[amount];\n}\n```",
+      "scoring": "code_unit_test",
+      "expected": {
+        "entry": "minCoins",
+        "cases": [
+          { "args": [[1, 2, 5], 11], "returns": 3 },
+          { "args": [[2], 3], "returns": -1 },
+          { "args": [[1], 5], "returns": 5 },
+          { "args": [[1, 3, 4], 6], "returns": 2 }
+        ]
+      },
+      "metadata": { "category": "self_correction", "difficulty": "hard" }
+    },
+    {
+      "id": "sc_007",
+      "name": "Fix double-count in Kadane's algorithm",
+      "system": "The provided JavaScript function has a bug. Output ONLY the corrected JavaScript function, no explanation.",
+      "prompt": "Fix the bug in this function:\n```javascript\nfunction maxSubarraySum(arr) {\n  let maxSum = arr[0];\n  let currentSum = arr[0];\n  for (let i = 0; i < arr.length; i++) {\n    currentSum = Math.max(arr[i], currentSum + arr[i]);\n    maxSum = Math.max(maxSum, currentSum);\n  }\n  return maxSum;\n}\n```",
+      "scoring": "code_unit_test",
+      "expected": {
+        "entry": "maxSubarraySum",
+        "cases": [
+          { "args": [[1, 2, 3]], "returns": 6 },
+          { "args": [[-2, 1, -3, 4, -1, 2, 1, -5, 4]], "returns": 6 },
+          { "args": [[-1, -2, -3]], "returns": -1 },
+          { "args": [[5, -3, 5]], "returns": 7 }
+        ]
+      },
+      "metadata": { "category": "self_correction", "difficulty": "hard" }
+    },
+    {
+      "id": "sc_008",
+      "name": "Fix off-by-one index in LCS comparison",
+      "system": "The provided JavaScript function has a bug. Output ONLY the corrected JavaScript function, no explanation.",
+      "prompt": "Fix the bug in this function:\n```javascript\nfunction lcs(s1, s2) {\n  const m = s1.length, n = s2.length;\n  const dp = Array.from({length: m + 1}, () => new Array(n + 1).fill(0));\n  for (let i = 1; i <= m; i++) {\n    for (let j = 1; j <= n; j++) {\n      if (s1[i] === s2[j]) {\n        dp[i][j] = dp[i-1][j-1] + 1;\n      } else {\n        dp[i][j] = Math.max(dp[i-1][j], dp[i][j-1]);\n      }\n    }\n  }\n  return dp[m][n];\n}\n```",
+      "scoring": "code_unit_test",
+      "expected": {
+        "entry": "lcs",
+        "cases": [
+          { "args": ["abc", "abc"], "returns": 3 },
+          { "args": ["abc", "def"], "returns": 0 },
+          { "args": ["ABCBDAB", "BDCAB"], "returns": 4 },
+          { "args": ["", "abc"], "returns": 0 },
+          { "args": ["abcde", "ace"], "returns": 3 }
+        ]
+      },
+      "metadata": { "category": "self_correction", "difficulty": "hard" }
+    },
+    {
+      "id": "rc_008",
+      "name": "Modular exponentiation — cyclic pattern",
+      "system": "Output only the number. No explanation.",
+      "prompt": "What is (2^100) mod 7? Note: the powers of 2 mod 7 cycle with period 3 (2,4,1,2,4,1...).",
+      "scoring": "exact",
+      "expected": {
+        "text": "2"
+      },
+      "metadata": { "category": "reasoning_chain", "difficulty": "hard" }
+    },
+    {
+      "id": "rc_009",
+      "name": "Combinatorics — digit sum count",
+      "system": "Output only the number. No explanation.",
+      "prompt": "How many distinct 4-digit numbers (from 1000 to 9999) have all non-zero digits AND the sum of their digits equals exactly 10? Digits can repeat. Count ordered numbers (e.g., 1234 and 4321 are different).",
+      "scoring": "exact",
+      "expected": {
+        "text": "84"
+      },
+      "metadata": { "category": "reasoning_chain", "difficulty": "hard" }
+    },
+    {
+      "id": "rc_010",
+      "name": "Probability — same-color draw",
+      "system": "Output only the simplified fraction (e.g. 3/7). No explanation.",
+      "prompt": "A bag contains 3 red, 4 blue, and 5 green balls. You draw 2 balls without replacement. What is the probability that both balls are the same color? Give the answer as a simplified fraction.",
+      "scoring": "exact",
+      "expected": {
+        "text": "19/66"
+      },
+      "metadata": { "category": "reasoning_chain", "difficulty": "hard" }
     }
   ]
 }
