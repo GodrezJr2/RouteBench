@@ -976,7 +976,22 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
 
     // ── Run panel ─────────────────────────────────────────────
 
-    function renderModelCheckboxes(models) {
+    // Current model list backing the run panel. Kept so "Add manually" can
+    // append to discovered models instead of replacing them.
+    var modelRegistry = [];
+
+    // Snapshot which checkboxes are currently ticked, so a re-render can restore
+    // the user's selection instead of resetting everything to checked.
+    function captureSelection() {
+      var map = {};
+      document.querySelectorAll('#run-models input[type=checkbox]').forEach(function(cb) {
+        map[cb.value] = cb.checked;
+      });
+      return map;
+    }
+
+    function renderModelCheckboxes(models, selected) {
+      modelRegistry = models ? models.slice() : [];
       var wrap = document.getElementById('run-models');
       if (!wrap) return;
       wrap.replaceChildren();
@@ -1003,7 +1018,8 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         var item = h('div', { class: 'model-item' });
         item.dataset.model = id.toLowerCase();
         var cb = document.createElement('input');
-        cb.type = 'checkbox'; cb.id = 'cb-' + id; cb.value = id; cb.checked = true;
+        cb.type = 'checkbox'; cb.id = 'cb-' + id; cb.value = id;
+        cb.checked = selected ? (selected[id] !== false) : true;
         cb.addEventListener('change', updateRunBtn);
         var lbl = document.createElement('label');
         lbl.htmlFor = 'cb-' + id;
@@ -1093,8 +1109,9 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
       }
     }
 
-    // Fallback when /models discovery fails or isn't supported: let the user
-    // type comma-separated model names and benchmark them directly.
+    // Fallback / supplement to /models discovery: let the user type
+    // comma-separated model names. These are APPENDED to whatever is already in
+    // the list (discovered or configured), not used to replace it.
     function addManualModels() {
       var inp = document.getElementById('inp-manual-models');
       var msg = document.getElementById('discover-msg');
@@ -1103,8 +1120,23 @@ td.detail-cell pre { font-size: 11px; max-height: 220px; overflow: auto; }
         if (msg) { msg.textContent = 'Type at least one model name.'; msg.className = 'run-msg r'; }
         return;
       }
-      renderModelCheckboxes(names.map(function(id) { return { id: id, owned_by: 'manual' }; }));
-      if (msg) { msg.textContent = names.length + ' model(s) added manually'; msg.className = 'run-msg g'; }
+      var selected = captureSelection();
+      var merged = modelRegistry.slice();
+      var have = {};
+      merged.forEach(function(m) { have[(m.id || String(m))] = true; });
+      var added = [];
+      names.forEach(function(id) {
+        if (!have[id]) { merged.push({ id: id, owned_by: 'manual' }); have[id] = true; added.push(id); }
+        selected[id] = true; // newly added (or re-typed) model starts checked
+      });
+      renderModelCheckboxes(merged, selected);
+      if (inp) inp.value = '';
+      if (msg) {
+        msg.textContent = added.length
+          ? added.length + ' model(s) added (' + merged.length + ' total)'
+          : 'already in the list — nothing added';
+        msg.className = 'run-msg ' + (added.length ? 'g' : 'r');
+      }
     }
 
     async function startBench() {

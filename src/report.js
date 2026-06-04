@@ -1,3 +1,5 @@
+import { sortDifficultyTiers } from './scoring.js';
+
 function pct(errorRate) {
   return `${Math.round(errorRate * 100)}%`;
 }
@@ -89,6 +91,23 @@ export function renderMarkdownReport(result) {
     lines.push(`| ${escapeCell(row.model)} | ${escapeCell(row.category)} | ${row.avg} | ${row.failures} | ${row.count} |`);
   }
   lines.push('');
+
+  const difficultyAggregate = result.difficulty_aggregate ?? {};
+  const tiers = sortDifficultyTiers(Object.keys(difficultyAggregate));
+  if (tiers.length > 0) {
+    lines.push('## Difficulty Breakdown', '');
+    lines.push('How each model holds up as cases get harder — a high overall score can hide weakness on hard cases.', '');
+    lines.push('| Difficulty | Model | Avg Score | Error Rate | Cases |');
+    lines.push('|---|---|---:|---:|---:|');
+    for (const tier of tiers) {
+      const models = Object.values(difficultyAggregate[tier].models)
+        .sort((a, b) => b.avg_score - a.avg_score || a.model.localeCompare(b.model));
+      for (const m of models) {
+        lines.push(`| ${escapeCell(tier)} | ${escapeCell(m.model)} | ${m.avg_score} | ${pct(m.error_rate)} | ${m.test_count} |`);
+      }
+    }
+    lines.push('');
+  }
 
   const failed = result.results.filter((row) => row.status !== 'completed' || row.passed === false);
   lines.push('## Failed Cases', '');
