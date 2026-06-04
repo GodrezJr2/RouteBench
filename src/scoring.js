@@ -1,7 +1,15 @@
 import vm from 'node:vm';
 
 function parseJsonStrict(output) {
-  return JSON.parse(output.trim());
+  const cleaned = output.trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Models (especially reasoning/GPT-5+ class) often wrap JSON in ```json
+    // code fences even when instructed not to. Extract and retry before
+    // reporting a parse failure — avoids false-negative 0 scores.
+    return JSON.parse(extractCode(cleaned));
+  }
 }
 
 // Pull the first fenced code block if present, else use the whole output.
@@ -88,19 +96,46 @@ function scoreJsonSchema(output, testCase) {
   return { score, passed: score >= 80, reason: `${matched.length}/${entries.length} required fields matched` };
 }
 
+// Loose normalization for "near match" credit on exact-scored cases: strip one
+// wrapping layer of quotes/backticks and trailing terminal punctuation. Case and
+// internal spacing are deliberately preserved — those are often the thing the
+// case is testing (uppercase transform, "no spaces" instructions).
+function normalizeLoose(text) {
+  let s = String(text).trim();
+  const quoted = s.match(/^(["'`])([\s\S]*)\1$/);
+  if (quoted) s = quoted[2].trim();
+  s = s.replace(/[.!。！]+$/u, '').trim();
+  return s;
+}
+
 function scoreExact(output, testCase) {
   const expected = String(testCase.expected?.text ?? '').trim();
   const actual = output.trim();
-  const passed = actual === expected;
-  return { score: passed ? 100 : 0, passed, reason: passed ? 'exact match' : 'output did not match expected text' };
+  if (actual === expected) {
+    return { score: 100, passed: true, reason: 'exact match' };
+  }
+  // A model that got the answer right but wrapped it in quotes or added a
+  // trailing period shouldn't score 0 — give near-full credit, not a pass-fail
+  // false negative. Empty expected never near-matches.
+  const normExpected = normalizeLoose(expected);
+  if (normExpected !== '' && normalizeLoose(actual) === normExpected) {
+    return { score: 90, passed: true, reason: 'near match (ignored surrounding quotes/punctuation)' };
+  }
+  return { score: 0, passed: false, reason: 'output did not match expected text' };
+}
+
+// Lowercase and collapse runs of whitespace so multi-word tokens still match
+// across newlines/double-spaces (e.g. "version  control" vs "version control").
+function normalizeContains(text) {
+  return String(text).toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
 function scoreContains(output, testCase) {
   const required = testCase.expected?.contains ?? [];
   const forbidden = testCase.expected?.not_contains ?? [];
-  const text = output.toLowerCase();
-  const requiredMatches = required.filter((item) => text.includes(String(item).toLowerCase()));
-  const forbiddenHits = forbidden.filter((item) => text.includes(String(item).toLowerCase()));
+  const text = normalizeContains(output);
+  const requiredMatches = required.filter((item) => text.includes(normalizeContains(item)));
+  const forbiddenHits = forbidden.filter((item) => text.includes(normalizeContains(item)));
   const totalChecks = required.length + forbidden.length;
   const passedChecks = requiredMatches.length + (forbidden.length - forbiddenHits.length);
   const score = totalChecks === 0 ? 100 : Math.round((passedChecks / totalChecks) * 100);
@@ -168,6 +203,49 @@ export function aggregateByCategory(results) {
     out[cat] = { models: modelStats };
   }
   return out;
+}
+
+// Difficulty tiers (easy/medium/hard) reveal where a model breaks down: acing
+// easy cases but failing hard ones is invisible in a single overall score.
+const DIFFICULTY_ORDER = { easy: 0, medium: 1, hard: 2 };
+
+export function aggregateByDifficulty(results) {
+  const tiers = new Map();
+  for (const result of results) {
+    const tier = result.difficulty || 'unspecified';
+    if (!tiers.has(tier)) tiers.set(tier, new Map());
+    const models = tiers.get(tier);
+    if (!models.has(result.model)) models.set(result.model, []);
+    models.get(result.model).push(result);
+  }
+
+  const out = {};
+  for (const [tier, models] of tiers) {
+    const modelStats = {};
+    for (const [model, rows] of models) {
+      const count = rows.length;
+      const scoreSum = rows.reduce((sum, r) => sum + Number(r.score ?? 0), 0);
+      const errorCount = rows.filter((r) => r.status !== 'completed').length;
+      modelStats[model] = {
+        model,
+        difficulty: tier,
+        test_count: count,
+        avg_score: Math.round(scoreSum / count),
+        error_rate: Number((errorCount / count).toFixed(4)),
+      };
+    }
+    out[tier] = { models: modelStats };
+  }
+  return out;
+}
+
+// Stable easy → medium → hard ordering, unknown tiers last (alphabetical).
+export function sortDifficultyTiers(tiers) {
+  return [...tiers].sort((a, b) => {
+    const ra = DIFFICULTY_ORDER[a] ?? 99;
+    const rb = DIFFICULTY_ORDER[b] ?? 99;
+    return ra - rb || a.localeCompare(b);
+  });
 }
 
 export function recommendByCategory(categoryAggregate) {

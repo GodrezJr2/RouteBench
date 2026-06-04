@@ -29,11 +29,39 @@ test('penalizes invalid JSON output', () => {
     expected: { required: { product_name: 'iPhone 15 Pro Max' } },
   };
 
-  const result = scoreOutput('```json\n{"product_name":"iPhone"}\n```', testCase);
+  const result = scoreOutput('not json at all', testCase);
 
   assert.equal(result.score, 0);
   assert.equal(result.passed, false);
   assert.equal(result.reason, 'output is not valid JSON');
+});
+
+test('extracts JSON from code fences before scoring', () => {
+  const testCase = {
+    id: 'json_product',
+    scoring: 'json_schema',
+    expected: { required: { product_name: 'iPhone 15 Pro Max' } },
+  };
+
+  // Model wrapped correct JSON in ```json ``` — should extract and score correctly
+  const result = scoreOutput('```json\n{"product_name":"iPhone 15 Pro Max"}\n```', testCase);
+
+  assert.equal(result.score, 100);
+  assert.equal(result.passed, true);
+});
+
+test('code-fenced JSON with wrong value still scores 0', () => {
+  const testCase = {
+    id: 'json_product',
+    scoring: 'json_schema',
+    expected: { required: { product_name: 'iPhone 15 Pro Max' } },
+  };
+
+  const result = scoreOutput('```json\n{"product_name":"iPhone"}\n```', testCase);
+
+  assert.equal(result.score, 0);
+  assert.equal(result.passed, false);
+  assert.ok(result.reason.includes('required fields matched'));
 });
 
 test('code_unit_test: all tests pass on a correct function', () => {
