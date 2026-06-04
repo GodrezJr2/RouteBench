@@ -316,6 +316,26 @@ export function aggregateResults(results) {
   return { models };
 }
 
+// Routing preference presets — adjust how quality, reliability, latency, and
+// cost are weighted when computing a model's recommendation score.
+// quality  = raw benchmark score (0-100)
+// reliability = (1 - error_rate) * 100
+// latency = 100 - p95_ms/100, clamped to 0
+// cost    = relative cheapness (cheapest model = 100, priciest = 0)
+export const ROUTING_PREFERENCES = {
+  balanced: { quality: 0.65, reliability: 0.25, latency: 0.10, cost: 0.10 },
+  quality:  { quality: 0.90, reliability: 0.10, latency: 0.00, cost: 0.00 },
+  speed:    { quality: 0.30, reliability: 0.20, latency: 0.50, cost: 0.00 },
+  cost:     { quality: 0.35, reliability: 0.15, latency: 0.10, cost: 0.40 },
+};
+
+export function resolvePreference(prefer) {
+  if (!prefer || prefer === 'balanced') return ROUTING_PREFERENCES.balanced;
+  const p = ROUTING_PREFERENCES[prefer];
+  if (!p) throw new Error(`Unknown routing preference "${prefer}". Valid: ${Object.keys(ROUTING_PREFERENCES).join(', ')}`);
+  return p;
+}
+
 // Latency uses p95 when available (tail latency matters more for routing than
 // the mean); falls back to the average for older result shapes.
 function latencyForScore(model) {
@@ -332,16 +352,24 @@ function costScore(model, ctx) {
   return Math.round((100 * (ctx.maxCost - cost)) / (ctx.maxCost - ctx.minCost));
 }
 
-function recommendationScore(model, ctx) {
+function recommendationScore(model, ctx, weights) {
+  const W = weights ?? ROUTING_PREFERENCES.balanced;
   const quality = model.overall_score;
   const reliability = (1 - model.error_rate) * 100;
   const latency = Math.max(0, 100 - latencyForScore(model) / 100);
   const cost = costScore(model, ctx);
-  if (cost == null) {
-    return Math.round(quality * 0.65 + reliability * 0.25 + latency * 0.1);
+
+  if (cost == null || W.cost === 0) {
+    // No cost data or preference ignores cost — renormalize remaining weights.
+    const sum = W.quality + W.reliability + W.latency;
+    if (sum === 0) return 0;
+    return Math.round(
+      (quality * W.quality + reliability * W.reliability + latency * W.latency) / sum
+    );
   }
-  // Cost data present for every model: fold it in with a modest weight.
-  return Math.round(quality * 0.55 + reliability * 0.22 + latency * 0.13 + cost * 0.1);
+  return Math.round(
+    quality * W.quality + reliability * W.reliability + latency * W.latency + cost * W.cost
+  );
 }
 
 function scoreReason(model) {
@@ -370,7 +398,8 @@ function costReason(model) {
   return `Estimated cost $${cost.toFixed(6)} for this run.`;
 }
 
-export function recommendModel(aggregate) {
+export function recommendModel(aggregate, { prefer } = {}) {
+  const weights = resolvePreference(prefer);
   const models = Object.values(aggregate.models);
   const costs = models.map((m) => m.total_estimated_cost_usd).filter((c) => c != null);
   const ctx = {
@@ -382,7 +411,7 @@ export function recommendModel(aggregate) {
   const ranked = models
     .map((model) => ({
       ...model,
-      recommendation_score: recommendationScore(model, ctx),
+      recommendation_score: recommendationScore(model, ctx, weights),
       score_reason: scoreReason(model),
       latency_reason: latencyReason(model),
       error_rate_reason: errorRateReason(model),
@@ -411,14 +440,16 @@ export function recommendModel(aggregate) {
     }
   }
 
+  const preferLabel = prefer ?? 'balanced';
   return {
     task_type: 'phase0_general_router',
+    routing_preference: preferLabel,
     primary_model: primary?.model ?? null,
     fallback_models: ranked.slice(1).map((model) => model.model),
     confidence,
     confidence_reason: confidenceReason,
     reason: primary
-      ? `Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}${ctx.costAvailable ? ' ' + primary.cost_reason : ''}${confidence === 'low' ? ' ⚠ ' + confidenceReason : ''}`
+      ? `[prefer:${preferLabel}] Primary ${primary.model}: ${primary.score_reason} ${primary.latency_reason} ${primary.error_rate_reason}${ctx.costAvailable ? ' ' + primary.cost_reason : ''}${confidence === 'low' ? ' ⚠ ' + confidenceReason : ''}`
       : 'No model results available.',
     ranked_models: ranked,
   };

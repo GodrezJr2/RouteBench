@@ -18,7 +18,7 @@ function help() {
 Commands:
   node src/cli.js models [--output results/models.json]
   node src/cli.js sample [--output results/sample-results.json]
-  node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md] [--route-output results/routing.json]
+  node src/cli.js run [--benchmark benchmarks/phase0.json] [--output results/model-results.json] [--report results/model-report.md] [--route-output results/routing.json] [--prefer quality|balanced|speed|cost]
   node src/cli.js report [--input results/model-results.json] [--output results/model-report.md]
   node src/cli.js compare --baseline results/run1.json --candidate results/run2.json [--output results/compare.json] [--report results/compare.md]
   node src/cli.js routing-export --input results/routing.json --format litellm|generic --output results/litellm-config.yaml
@@ -66,7 +66,8 @@ async function main() {
     const outputPath = flags.output || 'results/model-results.json';
     const reportPath = flags.report;
     const routeOutputPath = flags['route-output'];
-    const result = await runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath });
+    const prefer = flags.prefer;
+    const result = await runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, prefer });
     console.log(summarizeResult(result));
     console.log(`\nSaved ${outputPath}`);
     if (reportPath) console.log(`Saved ${reportPath}`);

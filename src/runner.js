@@ -4,6 +4,7 @@ import {
   scoreOutput,
   aggregateByCategory,
   recommendByCategory,
+  aggregateByDifficulty,
 } from './scoring.js';
 import { generateDiagnosis } from './diagnosis.js';
 
@@ -18,7 +19,8 @@ function calcCost(usage, costs) {
 // Run a single model/case pair and return one result row.
 async function runCase({ model, testCase, client, now, modelCosts, judge, judgeCategories }) {
   const category = testCase.metadata?.category ?? 'uncategorized';
-  const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category };
+  const difficulty = testCase.metadata?.difficulty ?? 'unspecified';
+  const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category, difficulty };
   const start = now();
 
   let response;
@@ -168,6 +170,7 @@ export async function runBenchmark({
   judge = null,
   judgeCategories = [],
   repeats = 1,
+  prefer = 'balanced',
 }) {
   const runRepeats = Math.max(1, Math.floor(repeats) || 1);
   const startedAt = new Date().toISOString();
@@ -209,9 +212,10 @@ export async function runBenchmark({
   await Promise.all(workers);
 
   const aggregate = aggregateResults(results);
-  const recommendation = recommendModel(aggregate);
+  const recommendation = recommendModel(aggregate, { prefer });
   const categoryAggregate = aggregateByCategory(results);
   const categoryRouting = recommendByCategory(categoryAggregate);
+  const difficultyAggregate = aggregateByDifficulty(results);
   const diagnosis = generateDiagnosis({ aggregate, categoryAggregate, categoryRouting });
 
   return {
@@ -226,6 +230,7 @@ export async function runBenchmark({
     recommendation,
     category_aggregate: categoryAggregate,
     category_routing: categoryRouting,
+    difficulty_aggregate: difficultyAggregate,
     diagnosis,
   };
 }

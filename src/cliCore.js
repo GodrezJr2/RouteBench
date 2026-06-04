@@ -142,7 +142,7 @@ export async function writeRouteExportFromResult({ result, outputPath, baseUrl =
   return json;
 }
 
-export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, env = process.env }) {
+export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, prefer, env = process.env }) {
   const benchmark = await loadBenchmark(benchmarkPath);
   const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
   const envConf = loadConfigFromEnv(env);
@@ -170,6 +170,7 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
         : DEFAULT_JUDGE_CATEGORIES)
     : [];
 
+  const resolvedPrefer = prefer || (fileConf.routing_preference) || 'balanced';
   const result = await runBenchmark({
     models: config.models,
     cases,
@@ -179,6 +180,7 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
     judge,
     judgeCategories,
     repeats,
+    prefer: resolvedPrefer,
   });
   const redact = [config.apiKey];
   await writeJson(outputPath, result, { redact });
