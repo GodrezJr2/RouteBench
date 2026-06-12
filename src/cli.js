@@ -21,12 +21,12 @@ Commands:
   node src/cli.js presets
   node src/cli.js models [--output results/models.json] [--filter-provider oc]
   node src/cli.js sample [--output results/sample-results.json]
-  node src/cli.js run [--benchmark benchmarks/phase0.json] [--preset opencode-free] [--output results/out.json] [--report results/out.md] [--route-output results/routing.json] [--prefer quality|balanced|speed|cost]
+  node src/cli.js run [--benchmark benchmarks/basics.json] [--preset opencode-free] [--output results/out.json] [--report results/out.md] [--route-output results/routing.json] [--prefer quality|balanced|speed|cost]
   node src/cli.js report [--input results/model-results.json] [--output results/model-report.md]
   node src/cli.js profile [--input results/model-results.json] [--agentic results/agentic-results.json] [--output results/profiles.json] [--report results/profiles.md]
   node src/cli.js compare --baseline results/run1.json --candidate results/run2.json [--output results/compare.json] [--report results/compare.md]
   node src/cli.js routing-export --input results/routing.json --format litellm|generic --output results/litellm-config.yaml
-  node src/cli.js promptfoo-config [--benchmark benchmarks/phase0.json] [--output promptfooconfig.yaml]
+  node src/cli.js promptfoo-config [--benchmark benchmarks/basics.json] [--output promptfooconfig.yaml]
 
 Presets (use --preset to skip manual model list):
   opencode-free          4 active OpenCode Free models on 9router
@@ -34,7 +34,7 @@ Presets (use --preset to skip manual model list):
   opencode-free-code     3 code-focused OpenCode Free models
 
 Benchmark packs:
-  benchmarks/phase0.json            30-case general router smoke test (default)
+  benchmarks/basics.json            30-case general router smoke test (default)
   benchmarks/claude-code-compat.json 25-case code generation + reasoning + injection
   benchmarks/frontier.json          39-case single-turn (algorithms, JS semantics, security, injection)
   benchmarks/code-assistant.json    30-case coding-assistant eval (repair, architecture, security, scheduler)
@@ -65,7 +65,7 @@ Quick start — OpenCode Free on 9router:
 
 async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2));
-  const benchmarkPath = flags.benchmark || 'benchmarks/phase0.json';
+  const benchmarkPath = flags.benchmark || 'benchmarks/basics.json';
 
   if (command === 'presets') {
     console.log(listAvailablePresets());

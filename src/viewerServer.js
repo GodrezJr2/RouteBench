@@ -278,7 +278,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
       if (req.method === 'POST') {
         const body = await readBody(req);
         const models = Array.isArray(body.models) ? body.models.map(String).filter(Boolean) : [];
-        const benchmarkPath = typeof body.benchmark === 'string' && body.benchmark ? body.benchmark : 'benchmarks/phase0.json';
+        const benchmarkPath = typeof body.benchmark === 'string' && body.benchmark ? body.benchmark : 'benchmarks/basics.json';
 
         if (models.length < 1) {
           res.writeHead(400, { 'Content-Type': 'application/json' });

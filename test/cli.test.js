@@ -4,10 +4,10 @@ import assert from 'node:assert/strict';
 import { parseArgs, createSampleResult, formatModelsList } from '../src/cliCore.js';
 
 test('parses output and benchmark flags', () => {
-  const parsed = parseArgs(['run', '--benchmark', 'benchmarks/phase0.json', '--output', 'results/out.json']);
+  const parsed = parseArgs(['run', '--benchmark', 'benchmarks/basics.json', '--output', 'results/out.json']);
 
   assert.equal(parsed.command, 'run');
-  assert.equal(parsed.flags.benchmark, 'benchmarks/phase0.json');
+  assert.equal(parsed.flags.benchmark, 'benchmarks/basics.json');
   assert.equal(parsed.flags.output, 'results/out.json');
 });
 

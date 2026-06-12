@@ -45,7 +45,7 @@ export function parseArgs(argv) {
   return { command, flags };
 }
 
-export async function loadBenchmark(path = 'benchmarks/phase0.json') {
+export async function loadBenchmark(path = 'benchmarks/basics.json') {
   const raw = await readFile(path, 'utf8');
   return JSON.parse(raw);
 }
@@ -100,7 +100,7 @@ export function listAvailablePresets() {
 }
 
 export async function createSampleResult() {
-  const benchmark = await loadBenchmark('benchmarks/phase0.json');
+  const benchmark = await loadBenchmark('benchmarks/basics.json');
   const fixtures = {
     'phase0-good': {
       exact_math_001: '391',

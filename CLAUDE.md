@@ -38,7 +38,7 @@ Quick start — OpenCode Free models on 9router (no manual model list needed):
 ```powershell
 # copy the example config and edit base_url / api_key
 cp routebench.config.opencode.example.json routebench.config.json
-# run against all 4 active OpenCode Free models (phase0 benchmark)
+# run against all 4 active OpenCode Free models (basics benchmark)
 npm run bench:opencode
 # run against 3 code-focused models with the code-compat benchmark
 npm run bench:opencode-code
@@ -142,7 +142,7 @@ Key files:
 - `src/viewerServer.js` — viewer HTTP server: serves `/` and `/dashboard` (unified benchmark tool), `/compare` (chat-compare room), and `/api/*` — `files`, `runs` (result files w/ summaries), `dashboard` (built payload, auto-merges `results/agentic-results.json`), `run`, `discover`, `chat-compare` (single-turn `{models,system,prompt}` OR multi-turn `{requests:[{model,messages}]}` → outputs side by side via `createChatClient`, per-model error isolation), `export`.
 - `src/profile.js` — Model Profile Cards: fuses overall quality + latency + tokens/cache + per-category + per-language + per-difficulty + optional agentic repo-repair into ONE per-model verdict with a role tag (DAILY DRIVER / HEAVY CODER / SPECIALIST / LIMITED) and use-for / avoid-for guidance. `node src/cli.js profile --input <results.json> [--agentic <agentic-results.json>]` (`npm run profile`).
 - `src/promptfoo.js` — Promptfoo YAML export.
-- `benchmarks/phase0.json` — 30-case general router smoke benchmark.
+- `benchmarks/basics.json` — 30-case general router smoke benchmark (default pack).
 - `benchmarks/claude-code-compat.json` — 26-case code generation + reasoning + injection benchmark for claude-code routing.
 - `benchmarks/frontier.json` — 39-case single-turn benchmark: DP/graph algorithms with greedy traps, JS runtime semantics, security vuln detection, complexity analysis, bug classification, hard prompt injection. Empirically does NOT separate frontier from capable free models (measured: free OpenCode models and GPT-5.5/Sonnet-4.6 all score 92-100). Validates a baseline quality threshold + compares latency/injection resistance, not model intelligence.
 - `benchmarks/code-assistant.json` — 30-case benchmark for evaluating paid models as Claude Code / coding assistant replacements: code repair (7 JS bug fixes), architecture decisions (5), security audit (5), backend patterns (5), scheduler logic (4), prompt injection hard (4).

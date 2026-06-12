@@ -218,7 +218,7 @@ test('POST /api/run returns cases_per_pack and models for progress detail', asyn
     const r = await fetch(`http://127.0.0.1:${port}/api/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models: ['m1', 'm2'], benchmark: 'benchmarks/phase0.json' }),
+      body: JSON.stringify({ models: ['m1', 'm2'], benchmark: 'benchmarks/basics.json' }),
     });
     assert.equal(r.status, 200);
     const json = await r.json();

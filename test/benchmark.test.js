@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 
 const allowedScoring = new Set(['exact', 'json_schema', 'contains', 'prompt_injection']);
 
-test('phase0 benchmark has around 30 deterministic cases with categories', async () => {
-  const benchmark = JSON.parse(await readFile('benchmarks/phase0.json', 'utf8'));
+test('basics benchmark has around 30 deterministic cases with categories', async () => {
+  const benchmark = JSON.parse(await readFile('benchmarks/basics.json', 'utf8'));
 
   assert.equal(benchmark.cases.length, 30);
   for (const testCase of benchmark.cases) {

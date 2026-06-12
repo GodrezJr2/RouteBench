@@ -1,6 +1,6 @@
 {
-  "id": "phase0_router_smoke_v1",
-  "name": "RouteBench Phase 0.5 Router Smoke Benchmark",
+  "id": "basics_router_smoke_v1",
+  "name": "RouteBench Basics Router Smoke Benchmark",
   "description": "Deterministic local-first benchmark for model comparison across OpenAI-compatible endpoints.",
   "cases": [
     {

@@ -154,7 +154,7 @@ The API key lives in process memory only — never written to disk, never return
 
 | Pack | Cases | What it measures |
 |---|---|---|
-| `benchmarks/phase0.json` | 30 | General router smoke test |
+| `benchmarks/basics.json` | 30 | General router smoke test (default) |
 | `benchmarks/claude-code-compat.json` | 26 | Code-gen + reasoning + injection for coding-agent routing |
 | `benchmarks/frontier.json` | 39 | Single-turn algorithms / JS semantics / security / injection |
 | `benchmarks/code-assistant.json` | 30 | Coding-assistant replacement eval (repair, architecture, security audit, backend patterns, scheduler) |
