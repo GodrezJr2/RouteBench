@@ -237,6 +237,8 @@ test('GET /api/runs lists result files with summaries', async () => {
     assert.ok(Array.isArray(json.runs));
     assert.ok(json.runs.some((run) => run.path.endsWith('sample.json')));
     assert.ok(json.runs.every((run) => Array.isArray(run.models)));
+    // in-progress runs are reported so a refresh can re-attach the progress bar
+    assert.ok(Array.isArray(json.active));
   });
 });
 

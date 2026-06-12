@@ -733,18 +733,37 @@ async function loadRun(path) {
   }
 }
 async function boot() {
-  let runs = null;
-  try { const r = await fetch("/api/runs"); if (r.ok) runs = (await r.json()).runs; } catch (e) { runs = null; }
-  if (runs === null) { D = BAKED; render(); document.getElementById("gen").textContent = "static snapshot"; return; }
+  let payload = null;
+  try { const r = await fetch("/api/runs"); if (r.ok) payload = await r.json(); } catch (e) { payload = null; }
+  if (payload === null) { D = BAKED; render(); document.getElementById("gen").textContent = "static snapshot"; return; }
+  const runs = payload.runs || [], active = payload.active || [];
+  // Re-attach to a benchmark that is still running server-side (survives refresh).
+  if (active.length) reattachRun(active[0]);
   if (!runs.length) {
     document.getElementById("verdict").replaceChildren();
-    gid("deck").open = true; document.getElementById("app").replaceChildren(stateEl(null, "No runs yet - connect & run above", $("div", null, "Use the Connect & Run panel, or from the CLI:"), $("div", { style:"margin-top:12px" }, $("code", null, "npm run bench:polyglot"))));
+    gid("deck").open = true;
+    if (active.length) {
+      document.getElementById("app").replaceChildren(stateEl(null, "Benchmark running…", $("div", null, "Reconnected to a run in progress. Results will appear here when it finishes.")));
+      document.getElementById("gen").textContent = "running"; return;
+    }
+    document.getElementById("app").replaceChildren(stateEl(null, "No runs yet - connect & run above", $("div", null, "Use the Connect & Run panel, or from the CLI:"), $("div", { style:"margin-top:12px" }, $("code", null, "npm run bench:polyglot"))));
     document.getElementById("gen").textContent = "no runs"; return;
   }
   const sel = document.getElementById("runsel"); sel.style.display = ""; document.getElementById("endpoint").classList.remove("solo");
   populateRunSel(sel, runs);
   sel.onchange = () => loadRun(sel.value);
   await loadRun("__all__");
+}
+// After a refresh, reconnect the progress bar to a still-running benchmark.
+function reattachRun(a) {
+  gid("deck").open = true;
+  const prog = gid("prog"); prog.style.display = ""; const bar = prog.firstElementChild;
+  const p = a.progress || {};
+  if (p.total) bar.style.width = Math.round((p.done || 0) / p.total * 100) + "%";
+  const st = gid("run-status"); st.className = "status";
+  st.textContent = "Reconnected to a running benchmark" + (p.total ? " — " + (p.done || 0) + "/" + p.total + " requests" : "") + "…";
+  gid("b-run").disabled = true;
+  pollRun(a.run_id);
 }
 // Run selector: an "All models" merged board first, then every individual run.
 function populateRunSel(sel, runs) {

@@ -135,18 +135,22 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
     // for the dashboard run selector. Skips routing/profile/compare exports.
     if (url.pathname === '/api/runs') {
       const files = await listResultFiles(resultsDir);
-      const runs = [];
+      const fileRuns = [];
       for (const f of files) {
         try {
           const data = JSON.parse(await readFile(f, 'utf8'));
           if (data.schema_version === 'routebench.phase0.v1' && data.aggregate?.models) {
-            runs.push({ path: f, models: data.models ?? [], finished_at: data.finished_at ?? null, cases: (data.test_cases ?? []).length });
+            fileRuns.push({ path: f, models: data.models ?? [], finished_at: data.finished_at ?? null, cases: (data.test_cases ?? []).length });
           }
         } catch { /* skip unreadable / non-result files */ }
       }
-      runs.sort((a, b) => String(b.finished_at).localeCompare(String(a.finished_at)));
+      fileRuns.sort((a, b) => String(b.finished_at).localeCompare(String(a.finished_at)));
+      // In-progress runs held in memory, so a page refresh can re-attach to the
+      // live progress bar instead of going blank while a benchmark is running.
+      const active = [];
+      for (const [id, r] of runs) if (r.status === 'running') active.push({ run_id: id, progress: r.progress, models: r.models ?? [] });
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ runs }));
+      res.end(JSON.stringify({ runs: fileRuns, active }));
       return;
     }
 
@@ -324,7 +328,7 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
         const runId = Date.now().toString();
         const totalCases = models.length * cases.length;
         const outputPath = `${resultsDir}/run-${runId}.json`.replace(/\\/g, '/');
-        runs.set(runId, { status: 'running', progress: { done: 0, total: totalCases }, result_path: null, error: null });
+        runs.set(runId, { status: 'running', progress: { done: 0, total: totalCases }, result_path: null, error: null, models });
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ run_id: runId, total_cases: totalCases, cases_per_pack: cases.length, models }));
