@@ -319,7 +319,10 @@ export function buildDashboard(result, agenticRows = null) {
   // Category + difficulty (mean across models per bucket)
   const meanByKey = (agg) => Object.entries(agg || {}).map(([n, d]) => {
     const vals = Object.values(d.models).map((x) => x.avg_score);
-    return { n, s: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0 };
+    // per-model scores for this bucket, so the dashboard can drill into one model
+    const m = {};
+    for (const [mdl, st] of Object.entries(d.models)) if (typeof st.avg_score === 'number') m[mdl] = st.avg_score;
+    return { n, s: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0, m };
   });
   const categories = meanByKey(result.category_aggregate).sort((a, b) => b.s - a.s);
   const DIFF_ORDER = { easy: 0, medium: 1, hard: 2 };

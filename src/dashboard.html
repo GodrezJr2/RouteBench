@@ -326,9 +326,11 @@
   .barlist { display: flex; flex-direction: column; gap: 14px; padding: 8px 0; }
   .brow { display: grid; grid-template-columns: 140px 1fr 40px; gap: 16px; align-items: center; }
   .brow .lb { font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .brow .tr { height: 8px; background: var(--line-2); border-radius: 5px; overflow: hidden; }
+  .brow .tr { position: relative; height: 8px; background: var(--line-2); border-radius: 5px; overflow: hidden; }
   .brow .tr > i { display: block; height: 100%; border-radius: 5px; }
+  .brow .tr > .avg { position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(0,0,0,0.5); transform: translateX(-1px); }
   .brow .pv { font-family: var(--mono); font-size: 13px; text-align: right; color: var(--ink); }
+  .panel-b .h .msel { margin-left: auto; font-family: var(--mono); font-size: 11px; padding: 3px 8px; border: 1px solid var(--line-2); border-radius: 6px; background: var(--surface); color: var(--ink-2); cursor: pointer; max-width: 220px; }
   
   .breaks { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .state { padding: 80px 28px; text-align: center; color: var(--ink-2); }
@@ -658,8 +660,36 @@ function renderRanked() {
 }
 function bars(title, items) {
   if (!items || !items.length) return null;
-  const rows = items.map((it) => $("div", { class:"brow" }, $("span", { class:"lb" }, it.n), $("span", { class:"tr" }, $("i", { style:"width:" + it.s + "%;background:" + scoreCol(it.s) })), $("span", { class:"pv", style:"color:" + scoreCol(it.s) }, it.s)));
-  return $("div", { class:"panel-b" }, $("div", { class:"h" }, $("span", { class:"t" }, title)), $("div", { class:"bd" }, $("div", { class:"barlist" }, ...rows)));
+  // models that have a per-bucket breakdown (absent on the baked snapshot)
+  const modelSet = new Set();
+  items.forEach((it) => { if (it.m) Object.keys(it.m).forEach((m) => modelSet.add(m)); });
+  const models = [...modelSet].sort();
+  const head = $("div", { class:"h" }, $("span", { class:"t" }, title));
+  let sel = null;
+  if (models.length > 1) {
+    sel = $("select", { class:"msel", "aria-label": title + " — filter by model" }, $("option", { value:"__avg__" }, "All models (avg)"));
+    models.forEach((m) => sel.append($("option", { value:m }, m.split("/").pop())));
+    head.append(sel);
+  }
+  const list = $("div", { class:"barlist" });
+  function paint(model) {
+    const single = model && model !== "__avg__";
+    const rows = [];
+    items.forEach((it) => {
+      let score, marker = null;
+      if (single) {
+        if (!it.m || it.m[model] == null) return; // model not tested on this bucket
+        score = it.m[model]; marker = it.s;        // its score, with the field avg as a tick
+      } else { score = it.s; }
+      const track = $("span", { class:"tr" }, $("i", { style:"width:" + score + "%;background:" + scoreCol(score) }));
+      if (marker != null) track.append($("span", { class:"avg", title:"field avg " + marker, style:"left:" + marker + "%" }));
+      rows.push($("div", { class:"brow" }, $("span", { class:"lb" }, it.n), track, $("span", { class:"pv", style:"color:" + scoreCol(score) }, score)));
+    });
+    list.replaceChildren(...rows);
+  }
+  if (sel) sel.addEventListener("change", () => paint(sel.value));
+  paint(null);
+  return $("div", { class:"panel-b" }, head, $("div", { class:"bd" }, list));
 }
 function render() {
   renderVerdict();
