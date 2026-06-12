@@ -1,22 +1,48 @@
+<div align="center">
+
 # RouteBench
 
-**Benchmark the models behind your OpenAI-compatible router — then route each task to the one that's actually good at it.**
+### Benchmark the models behind your OpenAI-compatible router — then route each task to the one that's actually good at it.
 
+[![CI](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml/badge.svg)](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f97316.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
 [![Tests](https://img.shields.io/badge/tests-201%20passing-brightgreen.svg)](#tests)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-blueviolet.svg)](CONTRIBUTING.md)
 
-RouteBench is a local-first CLI **and** dashboard for benchmarking LLMs sitting behind any OpenAI-compatible endpoint (9router, LiteLLM, OpenRouter, vLLM, Ollama, LM Studio, llama.cpp, or your own gateway). It profiles paid frontier and free local models on **real, executed work** — running their code against unit tests, repairing broken repos turn-by-turn — and turns the numbers into a **routing decision**: which model for which task, exported as ready-to-use router config.
+A local-first CLI **and** dashboard that profiles LLMs on **real, executed work** — running their code against unit tests, repairing broken repos turn-by-turn — and turns the numbers into a **routing decision** you can export straight into your gateway.
 
-It is **router-first, not leaderboard-first**. The output isn't a single "best model" — it's a per-task routing rule.
+**Router-first, not leaderboard-first.** The output isn't a single "best model" — it's a per-task routing rule.
+
+[Quickstart](#quickstart-no-endpoint-needed) · [Why](#why) · [What makes it different](#what-makes-it-different) · [Dashboard](#the-dashboard) · [Packs](#benchmark-packs) · [Contributing](#contributing)
 
 ![RouteBench dashboard](docs/dashboard.png)
+
+</div>
+
+---
+
+## Table of contents
+
+- [Why](#why)
+- [Quickstart (no endpoint needed)](#quickstart-no-endpoint-needed)
+- [Run against a real endpoint](#run-against-a-real-endpoint)
+- [What makes it different](#what-makes-it-different)
+- [The dashboard](#the-dashboard)
+- [Benchmark packs](#benchmark-packs)
+- [Output](#output)
+- [Architecture](#architecture)
+- [Security](#security)
+- [Tests](#tests)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
 ## Why
 
-Most benchmarks rank models on one global score. But a fast model can win overall and still lose on prompt-injection resistance; a free model can ace Python and stumble on Java. If you run several models behind one router, the real question is:
+Most benchmarks rank models on one global score. But a fast model can win overall and still lose on prompt-injection resistance; a free model can ace Python and stumble on Java. If you run several models behind one router (9router, LiteLLM, OpenRouter, vLLM, Ollama, LM Studio, llama.cpp, or your own gateway), the real question is:
 
 > *Which model is cheapest, fastest, and safest **for this specific task**?*
 
@@ -32,7 +58,7 @@ cd RouteBench
 npm run demo
 ```
 
-Generates `results/demo-report.md` — a full Markdown report comparing two sample models, fully offline.
+Generates `results/demo-report.md` — a full Markdown report comparing two sample models, fully offline. No API key, no install step (RouteBench runs on the Node 20+ standard library).
 
 Open the dashboard:
 
@@ -211,8 +237,36 @@ npm test          # 201 passing
 npm run lint      # syntax check
 ```
 
+No test framework — just Node's built-in `node --test`. Tests needing `python` / `javac` / `java` self-skip when those runtimes are absent, so the suite is green on a bare Node install.
+
+---
+
+## Roadmap
+
+RouteBench is currently a local-first proof of concept (Phase 0.5). Direction, not promises:
+
+- [ ] Cost-aware routing rules (route by $/task, not just quality)
+- [ ] More agentic fixtures (larger repos, more languages)
+- [ ] Tool-calling and RAG benchmark categories
+- [ ] LLM-as-judge for open-ended categories (opt-in; deterministic stays the default)
+- [ ] Hosted/shareable run reports
+
+Ideas and PRs welcome — see [Contributing](#contributing).
+
+---
+
+## Contributing
+
+Contributions are welcome. The dev loop is fast — no production dependencies, no endpoint required to run the tests:
+
+```bash
+npm test && npm run lint
+```
+
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for project layout, how to add a benchmark pack, and the PR checklist.
+
 ---
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © GodrezJr2
