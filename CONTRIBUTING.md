@@ -12,7 +12,7 @@ npm run lint      # syntax check
 npm run demo      # offline sample benchmark + report
 ```
 
-There are no production dependencies to install — RouteBench runs on the Node 20+ standard library. `promptfoo` is an optional peer used only by the export command.
+There are no production dependencies to install — RouteBench runs on the Node 22+ standard library (it uses built-in `node:sqlite`). `promptfoo` is an optional peer used only by the export command.
 
 ## Project layout
 

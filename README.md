@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml/badge.svg)](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f97316.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A520-339933.svg)](package.json)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](package.json)
 [![Tests](https://img.shields.io/badge/tests-201%20passing-brightgreen.svg)](#tests)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-blueviolet.svg)](CONTRIBUTING.md)
 
@@ -58,7 +58,7 @@ cd RouteBench
 npm run demo
 ```
 
-Generates `results/demo-report.md` — a full Markdown report comparing two sample models, fully offline. No API key, no install step (RouteBench runs on the Node 20+ standard library).
+Generates `results/demo-report.md` — a full Markdown report comparing two sample models, fully offline. No API key, no install step (RouteBench runs on the Node 22+ standard library, including built-in `node:sqlite` for run history).
 
 Open the dashboard:
 
