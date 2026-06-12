@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildProfiles, renderProfileReport, buildDashboard } from '../src/profile.js';
+import { buildProfiles, renderProfileReport, buildDashboard, mergeResults } from '../src/profile.js';
 
 function fixture() {
   return {
@@ -156,4 +156,44 @@ test('buildDashboard omits languages + agentic when absent', () => {
   const d = buildDashboard(r, null);
   assert.equal(d.languages, null);
   assert.equal(d.agentic, null);
+});
+
+test('mergeResults fuses models and axes across runs (latest wins)', () => {
+  const langRun = {
+    finished_at: '2026-02-01T00:00:00Z',
+    models: ['a'],
+    test_cases: [{ id: 'x1' }, { id: 'x2' }],
+    aggregate: { models: { a: { model: 'a', overall_score: 80, avg_latency_ms: 1000, error_rate: 0 } } },
+    language_aggregate: { python: { models: { a: { avg_score: 100 } } } },
+  };
+  const catRun = {
+    finished_at: '2026-03-01T00:00:00Z',
+    models: ['a', 'b'],
+    test_cases: [{ id: 'y1' }],
+    aggregate: {
+      models: {
+        a: { model: 'a', overall_score: 90, avg_latency_ms: 2000, error_rate: 0 },
+        b: { model: 'b', overall_score: 70, avg_latency_ms: 500, error_rate: 0 },
+      },
+    },
+    category_aggregate: { coding: { models: { a: { avg_score: 88 }, b: { avg_score: 60 } } } },
+  };
+  const m = mergeResults([catRun, langRun]); // pass out of order on purpose
+  assert.equal(m.merged, true);
+  assert.equal(m.run_count, 2);
+  assert.deepEqual(m.models.sort(), ['a', 'b']);
+  // latest run (catRun, March) wins for a's core metrics
+  assert.equal(m.aggregate.models.a.overall_score, 90);
+  // languages survive from the earlier polyglot run, categories from the later one
+  assert.equal(m.language_aggregate.python.models.a.avg_score, 100);
+  assert.equal(m.category_aggregate.coding.models.a.avg_score, 88);
+  // distinct case ids across both runs
+  assert.equal(m.test_cases.length, 3);
+  // ranked is sorted by overall desc and a model-only-in-one-run is included
+  assert.equal(m.recommendation.ranked_models[0].model, 'a');
+  assert.ok(m.recommendation.ranked_models.some((r) => r.model === 'b'));
+  // feeds buildDashboard cleanly
+  const d = buildDashboard(m, null);
+  assert.equal(d.meta.merged, true);
+  assert.equal(d.profiles.length, 2);
 });

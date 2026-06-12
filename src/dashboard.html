@@ -694,7 +694,10 @@ async function loadRun(path) {
     if (!r.ok) throw new Error("HTTP " + r.status);
     D = await r.json();
     render();
-    document.getElementById("gen").textContent = "live · " + (D.meta && D.meta.finished_at ? new Date(D.meta.finished_at).toLocaleString() : path.split("/").pop());
+    const gen = (D.meta && D.meta.merged)
+      ? "merged · " + (D.meta.runs || "all") + " runs · " + (D.meta.models ? D.meta.models.length : 0) + " models"
+      : "live · " + (D.meta && D.meta.finished_at ? new Date(D.meta.finished_at).toLocaleString() : path.split("/").pop());
+    document.getElementById("gen").textContent = gen;
   } catch (e) {
     app.replaceChildren(stateEl("err", "Could not load run", $("div", null, String(e.message))));
   }
@@ -709,9 +712,15 @@ async function boot() {
     document.getElementById("gen").textContent = "no runs"; return;
   }
   const sel = document.getElementById("runsel"); sel.style.display = ""; document.getElementById("endpoint").classList.remove("solo");
-  runs.forEach((run) => { const o = $("option", { value: run.path }, runLabel(run)); sel.append(o); });
-  sel.addEventListener("change", () => loadRun(sel.value));
-  await loadRun(runs[0].path);
+  populateRunSel(sel, runs);
+  sel.onchange = () => loadRun(sel.value);
+  await loadRun("__all__");
+}
+// Run selector: an "All models" merged board first, then every individual run.
+function populateRunSel(sel, runs) {
+  sel.replaceChildren();
+  sel.append($("option", { value: "__all__" }, "★ All models (merged · " + runs.length + " run" + (runs.length === 1 ? "" : "s") + ")"));
+  runs.forEach((run) => sel.append($("option", { value: run.path }, runLabel(run))));
 }
 const QUICK = [["Ollama","http://localhost:11434/v1"],["LM Studio","http://localhost:1234/v1"],["llama.cpp","http://localhost:8080/v1"],["vLLM","http://localhost:8000/v1"],["OpenRouter","https://openrouter.ai/api/v1"]];
 let discovered = [], selected = new Set();
@@ -807,9 +816,10 @@ async function pollRun(id){
 }
 async function refreshAndShow(path){
   let runs=[]; try{ runs=(await (await fetch("/api/runs")).json()).runs; }catch(e){}
-  const sel=gid("runsel"); sel.style.display=""; gid("endpoint").classList.remove("solo"); sel.replaceChildren();
-  runs.forEach(function(run){ sel.append($("option",{value:run.path}, runLabel(run))); });
-  if(path){ sel.value=path; await loadRun(path); }
+  const sel=gid("runsel"); sel.style.display=""; gid("endpoint").classList.remove("solo");
+  populateRunSel(sel, runs); sel.onchange=function(){ loadRun(sel.value); };
+  // After a new run, show the merged board so the just-tested model appears alongside the rest.
+  sel.value="__all__"; await loadRun("__all__");
   gid("deck").open=false;
 }
 initDeck();

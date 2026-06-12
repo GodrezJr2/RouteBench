@@ -232,6 +232,58 @@ function verbosity(completion, testCount) {
   return 'terse';
 }
 
+// Merge many benchmark results into ONE synthetic result for an "all models"
+// board. The latest-finishing run wins per model and per (axis-key, model), so
+// a model's languages come from its most recent polyglot run, its categories
+// from its most recent category run, and so on — every axis ever measured for a
+// model is fused onto one card. Running a new benchmark folds in automatically.
+export function mergeResults(results) {
+  const valid = (results || []).filter((r) => r && r.aggregate && r.aggregate.models);
+  // ascending by finish time so later runs overwrite earlier ones (latest wins)
+  valid.sort((a, b) => String(a.finished_at || '').localeCompare(String(b.finished_at || '')));
+  const aggModels = {};
+  const cat = {}, lang = {}, diff = {};
+  const caseIds = new Set();
+  let finishedAt = null;
+  const mergeAxis = (dst, src) => {
+    for (const [key, data] of Object.entries(src || {})) {
+      const bucket = (dst[key] ||= { models: {} });
+      for (const [model, stats] of Object.entries(data.models || {})) bucket.models[model] = stats;
+    }
+  };
+  for (const r of valid) {
+    for (const [model, stats] of Object.entries(r.aggregate.models)) aggModels[model] = { ...stats, model };
+    mergeAxis(cat, r.category_aggregate);
+    mergeAxis(lang, r.language_aggregate);
+    mergeAxis(diff, r.difficulty_aggregate);
+    for (const c of r.test_cases || []) caseIds.add(c.id || JSON.stringify(c).slice(0, 60));
+    if (r.finished_at && (!finishedAt || r.finished_at > finishedAt)) finishedAt = r.finished_at;
+  }
+  const ranked = Object.values(aggModels)
+    .map((m) => ({
+      model: m.model,
+      recommendation_score: m.overall_score,
+      overall_score: m.overall_score,
+      avg_latency_ms: m.avg_latency_ms,
+      p95_latency_ms: m.p95_latency_ms ?? null,
+      error_rate: m.error_rate,
+    }))
+    .sort((a, b) => (b.overall_score ?? 0) - (a.overall_score ?? 0) || (a.avg_latency_ms ?? 0) - (b.avg_latency_ms ?? 0));
+  return {
+    schema_version: 'routebench.phase0.v1',
+    merged: true,
+    run_count: valid.length,
+    models: Object.keys(aggModels),
+    finished_at: finishedAt,
+    test_cases: Array.from({ length: caseIds.size }),
+    aggregate: { models: aggModels },
+    category_aggregate: cat,
+    language_aggregate: lang,
+    difficulty_aggregate: diff,
+    recommendation: { ranked_models: ranked },
+  };
+}
+
 export function buildDashboard(result, agenticRows = null) {
   const models = result.aggregate?.models ?? {};
   const profiles = buildProfiles(result, agenticRows);
@@ -316,7 +368,7 @@ export function buildDashboard(result, agenticRows = null) {
   }
 
   return {
-    meta: { models: result.models ?? Object.keys(models), finished_at: result.finished_at ?? null, cases: (result.test_cases ?? []).length },
+    meta: { models: result.models ?? Object.keys(models), finished_at: result.finished_at ?? null, cases: (result.test_cases ?? []).length, merged: result.merged ?? false, runs: result.run_count ?? null },
     verdict, profiles: cards, languages, agentic, ranked, categories, difficulty, tokens,
   };
 }

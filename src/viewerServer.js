@@ -8,7 +8,7 @@ import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs } from './config.js
 import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient, createChatClient } from './openaiClient.js';
 import { renderMarkdownReport } from './report.js';
-import { buildDashboard } from './profile.js';
+import { buildDashboard, mergeResults } from './profile.js';
 import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
 import { resultToHistoryEntry } from './history.js';
@@ -155,13 +155,28 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
     if (url.pathname === '/api/dashboard') {
       const filePath = url.searchParams.get('path');
       try {
-        const safe = sanitizePath(filePath, resultsDir);
-        const result = JSON.parse(await readFile(safe, 'utf8'));
         let agenticRows = null;
         try {
           const agentic = JSON.parse(await readFile(join(resultsDir, 'agentic-results.json'), 'utf8'));
           agenticRows = Array.isArray(agentic) ? agentic : (agentic.rows ?? null);
         } catch { /* no agentic results — optional */ }
+        // Special "all models" view: merge every result file into one board.
+        if (filePath === '__all__') {
+          const files = await listResultFiles(resultsDir);
+          const results = [];
+          for (const f of files) {
+            try {
+              const data = JSON.parse(await readFile(f, 'utf8'));
+              if (data.schema_version === 'routebench.phase0.v1' && data.aggregate?.models) results.push(data);
+            } catch { /* skip unreadable / non-result files */ }
+          }
+          if (results.length === 0) throw new Error('no runs to merge');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(buildDashboard(mergeResults(results), agenticRows)));
+          return;
+        }
+        const safe = sanitizePath(filePath, resultsDir);
+        const result = JSON.parse(await readFile(safe, 'utf8'));
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(buildDashboard(result, agenticRows)));
       } catch (err) {
