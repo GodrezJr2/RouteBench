@@ -36,7 +36,7 @@
     "scripts/",
     "routebench.config.example.json",
     "README.md",
-    "RELEASE_NOTES.md"
+    "LICENSE"
   ],
   "keywords": [
     "llm",

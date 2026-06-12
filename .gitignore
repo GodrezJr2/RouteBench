@@ -5,3 +5,8 @@ routebench.config.json
 .env
 *.local
 rtk/
+
+# kept local, not part of the public project
+CLAUDE.md
+routebench_prd.md
+.remember/
