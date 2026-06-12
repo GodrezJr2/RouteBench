@@ -105,7 +105,7 @@ Atomic Q&A benchmarks don't separate frontier models from capable free ones — 
 
 ### 🧪 Per-language execution (`code_exec`)
 
-`benchmarks/polyglot-hard.json` makes each model write **Python, Java, and JavaScript**, then runs the generated code against real unit tests via the actual `python`, `javac`+`java`, and `node` runtimes. The report shows a models × languages score matrix that exposes uneven strength.
+`benchmarks/polyglot-hard.json` makes each model write **Python, Java, and JavaScript** for genuinely hard algorithms (edit distance, regex matching, largest-rectangle-in-histogram, burst balloons, trapping rain water, …), then runs the generated code against real unit tests via the actual `python`, `javac`+`java`, and `node` runtimes. The report shows a models × languages score matrix that exposes uneven strength. Every case is execution-verified: a correct reference solution scores 100 and a deliberately wrong one scores lower, so the case provably discriminates.
 
 ```bash
 ROUTEBENCH_MODELS="oc/north-mini-code-free,kr/claude-sonnet-4.6" npm run bench:polyglot
@@ -156,9 +156,9 @@ The API key lives in process memory only — never written to disk, never return
 |---|---|---|
 | `benchmarks/basics.json` | 30 | General router smoke test (default) |
 | `benchmarks/claude-code-compat.json` | 26 | Code-gen + reasoning + injection for coding-agent routing |
-| `benchmarks/frontier.json` | 39 | Single-turn algorithms / JS semantics / security / injection |
-| `benchmarks/code-assistant.json` | 30 | Coding-assistant replacement eval (repair, architecture, security audit, backend patterns, scheduler) |
-| `benchmarks/polyglot-hard.json` | 18 | Per-language profiling — 4 hard algorithms run for real in Python/Java/JS + 6 CWE/security cases |
+| `benchmarks/frontier.json` | 45 | Single-turn algorithms / JS semantics / security / injection |
+| `benchmarks/code-assistant.json` | 36 | Coding-assistant replacement eval (repair, architecture, security audit, backend patterns, scheduler) |
+| `benchmarks/polyglot-hard.json` | 30 | Per-language profiling — 8 hard algorithms run for real in Python/Java/JS + 6 CWE/security cases |
 
 > **Honest limitation, stated up front:** the single-turn packs validate a *baseline quality threshold* and compare *latency + injection resistance* — they do **not** rank model intelligence. Free OpenCode models and paid GPT-5.5 / Sonnet-4.6 all score 92–100 on `frontier.json`. For capability separation, use the agentic harness.
 

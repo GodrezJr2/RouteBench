@@ -910,6 +910,951 @@
         "category": "security_cwe",
         "difficulty": "medium"
       }
+    },
+    {
+      "id": "mindistance_py",
+      "name": "minDistance (Python)",
+      "system": "Write only a Python function named minDistance with signature minDistance(a, b). No markdown, no explanation, no test code.",
+      "prompt": "Return the minimum number of single-character edits (insert, delete, or replace) to convert string a into string b (Levenshtein edit distance). Example: \"horse\"->\"ros\" is 3.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "minDistance",
+        "cases": [
+          {
+            "args": [
+              "horse",
+              "ros"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "intention",
+              "execution"
+            ],
+            "returns": 5
+          },
+          {
+            "args": [
+              "",
+              "abc"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "abc",
+              ""
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "same",
+              "same"
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "kitten",
+              "sitting"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "a",
+              "b"
+            ],
+            "returns": 1
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "mindistance_java",
+      "name": "minDistance (Java)",
+      "system": "Write only a Java class named Solution containing: public static int minDistance(String a, String b). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Return the minimum number of single-character edits (insert, delete, or replace) to convert string a into string b (Levenshtein edit distance). Example: \"horse\"->\"ros\" is 3.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "minDistance",
+        "cases": [
+          {
+            "args": [
+              "horse",
+              "ros"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "intention",
+              "execution"
+            ],
+            "returns": 5
+          },
+          {
+            "args": [
+              "",
+              "abc"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "abc",
+              ""
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "same",
+              "same"
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "kitten",
+              "sitting"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "a",
+              "b"
+            ],
+            "returns": 1
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "mindistance_js",
+      "name": "minDistance (Javascript)",
+      "system": "Write only a JavaScript function named minDistance with signature minDistance(a, b). No markdown, no explanation, no test code.",
+      "prompt": "Return the minimum number of single-character edits (insert, delete, or replace) to convert string a into string b (Levenshtein edit distance). Example: \"horse\"->\"ros\" is 3.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "minDistance",
+        "cases": [
+          {
+            "args": [
+              "horse",
+              "ros"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "intention",
+              "execution"
+            ],
+            "returns": 5
+          },
+          {
+            "args": [
+              "",
+              "abc"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "abc",
+              ""
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "same",
+              "same"
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "kitten",
+              "sitting"
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              "a",
+              "b"
+            ],
+            "returns": 1
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "ismatch_py",
+      "name": "isMatch (Python)",
+      "system": "Write only a Python function named isMatch with signature isMatch(s, p). No markdown, no explanation, no test code.",
+      "prompt": "Implement regular-expression matching where '.' matches any single character and '*' matches zero or more of the PRECEDING element. The match must cover the ENTIRE input string. Return true/false.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "isMatch",
+        "cases": [
+          {
+            "args": [
+              "aa",
+              "a"
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "aa",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "ab",
+              ".*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "aab",
+              "c*a*b"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*p*."
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*ip*."
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "abc",
+              ".*c"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "a",
+              ""
+            ],
+            "returns": false
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "ismatch_java",
+      "name": "isMatch (Java)",
+      "system": "Write only a Java class named Solution containing: public static boolean isMatch(String s, String p). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Implement regular-expression matching where '.' matches any single character and '*' matches zero or more of the PRECEDING element. The match must cover the ENTIRE input string. Return true/false.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "isMatch",
+        "cases": [
+          {
+            "args": [
+              "aa",
+              "a"
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "aa",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "ab",
+              ".*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "aab",
+              "c*a*b"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*p*."
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*ip*."
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "abc",
+              ".*c"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "a",
+              ""
+            ],
+            "returns": false
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "ismatch_js",
+      "name": "isMatch (Javascript)",
+      "system": "Write only a JavaScript function named isMatch with signature isMatch(s, p). No markdown, no explanation, no test code.",
+      "prompt": "Implement regular-expression matching where '.' matches any single character and '*' matches zero or more of the PRECEDING element. The match must cover the ENTIRE input string. Return true/false.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "isMatch",
+        "cases": [
+          {
+            "args": [
+              "aa",
+              "a"
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "aa",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "ab",
+              ".*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "aab",
+              "c*a*b"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*p*."
+            ],
+            "returns": false
+          },
+          {
+            "args": [
+              "mississippi",
+              "mis*is*ip*."
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "",
+              "a*"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "abc",
+              ".*c"
+            ],
+            "returns": true
+          },
+          {
+            "args": [
+              "a",
+              ""
+            ],
+            "returns": false
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "largestrectanglearea_py",
+      "name": "largestRectangleArea (Python)",
+      "system": "Write only a Python function named largestRectangleArea with signature largestRectangleArea(heights). No markdown, no explanation, no test code.",
+      "prompt": "Given an array of bar heights (width 1 each), return the area of the largest rectangle that fits entirely under the histogram. Example: [2,1,5,6,2,3] -> 10.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "largestRectangleArea",
+        "cases": [
+          {
+            "args": [
+              [
+                2,
+                1,
+                5,
+                6,
+                2,
+                3
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                2,
+                4
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                0
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                1,
+                1,
+                1
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                6,
+                2,
+                5,
+                4,
+                5,
+                1,
+                6
+              ]
+            ],
+            "returns": 12
+          },
+          {
+            "args": [
+              [
+                2,
+                1,
+                2
+              ]
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                1,
+                2
+              ]
+            ],
+            "returns": 8
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "largestrectanglearea_java",
+      "name": "largestRectangleArea (Java)",
+      "system": "Write only a Java class named Solution containing: public static int largestRectangleArea(int[] heights). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Given an array of bar heights (width 1 each), return the area of the largest rectangle that fits entirely under the histogram. Example: [2,1,5,6,2,3] -> 10.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "largestRectangleArea",
+        "cases": [
+          {
+            "args": [
+              [
+                2,
+                1,
+                5,
+                6,
+                2,
+                3
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                2,
+                4
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                0
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                1,
+                1,
+                1
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                6,
+                2,
+                5,
+                4,
+                5,
+                1,
+                6
+              ]
+            ],
+            "returns": 12
+          },
+          {
+            "args": [
+              [
+                2,
+                1,
+                2
+              ]
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                1,
+                2
+              ]
+            ],
+            "returns": 8
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "largestrectanglearea_js",
+      "name": "largestRectangleArea (Javascript)",
+      "system": "Write only a JavaScript function named largestRectangleArea with signature largestRectangleArea(heights). No markdown, no explanation, no test code.",
+      "prompt": "Given an array of bar heights (width 1 each), return the area of the largest rectangle that fits entirely under the histogram. Example: [2,1,5,6,2,3] -> 10.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "largestRectangleArea",
+        "cases": [
+          {
+            "args": [
+              [
+                2,
+                1,
+                5,
+                6,
+                2,
+                3
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                2,
+                4
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                0
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                1,
+                1,
+                1
+              ]
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              [
+                6,
+                2,
+                5,
+                4,
+                5,
+                1,
+                6
+              ]
+            ],
+            "returns": 12
+          },
+          {
+            "args": [
+              [
+                2,
+                1,
+                2
+              ]
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                1,
+                2
+              ]
+            ],
+            "returns": 8
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "maxcoins_py",
+      "name": "maxCoins (Python)",
+      "system": "Write only a Python function named maxCoins with signature maxCoins(nums). No markdown, no explanation, no test code.",
+      "prompt": "You have balloons with values nums. Bursting balloon i gives nums[left]*nums[i]*nums[right] coins, where left/right are the adjacent un-burst balloons (out-of-range = 1). Return the maximum coins from bursting all balloons in the best order. Example: [3,1,5,8] -> 167.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxCoins",
+        "cases": [
+          {
+            "args": [
+              [
+                3,
+                1,
+                5,
+                8
+              ]
+            ],
+            "returns": 167
+          },
+          {
+            "args": [
+              [
+                1,
+                5
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                7
+              ]
+            ],
+            "returns": 7
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3,
+                4
+              ]
+            ],
+            "returns": 40
+          },
+          {
+            "args": [
+              [
+                5,
+                3,
+                8
+              ]
+            ],
+            "returns": 168
+          },
+          {
+            "args": [
+              [
+                9,
+                2,
+                6
+              ]
+            ],
+            "returns": 171
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "maxcoins_java",
+      "name": "maxCoins (Java)",
+      "system": "Write only a Java class named Solution containing: public static int maxCoins(int[] nums). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "You have balloons with values nums. Bursting balloon i gives nums[left]*nums[i]*nums[right] coins, where left/right are the adjacent un-burst balloons (out-of-range = 1). Return the maximum coins from bursting all balloons in the best order. Example: [3,1,5,8] -> 167.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxCoins",
+        "cases": [
+          {
+            "args": [
+              [
+                3,
+                1,
+                5,
+                8
+              ]
+            ],
+            "returns": 167
+          },
+          {
+            "args": [
+              [
+                1,
+                5
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                7
+              ]
+            ],
+            "returns": 7
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3,
+                4
+              ]
+            ],
+            "returns": 40
+          },
+          {
+            "args": [
+              [
+                5,
+                3,
+                8
+              ]
+            ],
+            "returns": 168
+          },
+          {
+            "args": [
+              [
+                9,
+                2,
+                6
+              ]
+            ],
+            "returns": 171
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "maxcoins_js",
+      "name": "maxCoins (Javascript)",
+      "system": "Write only a JavaScript function named maxCoins with signature maxCoins(nums). No markdown, no explanation, no test code.",
+      "prompt": "You have balloons with values nums. Bursting balloon i gives nums[left]*nums[i]*nums[right] coins, where left/right are the adjacent un-burst balloons (out-of-range = 1). Return the maximum coins from bursting all balloons in the best order. Example: [3,1,5,8] -> 167.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxCoins",
+        "cases": [
+          {
+            "args": [
+              [
+                3,
+                1,
+                5,
+                8
+              ]
+            ],
+            "returns": 167
+          },
+          {
+            "args": [
+              [
+                1,
+                5
+              ]
+            ],
+            "returns": 10
+          },
+          {
+            "args": [
+              [
+                7
+              ]
+            ],
+            "returns": 7
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3,
+                4
+              ]
+            ],
+            "returns": 40
+          },
+          {
+            "args": [
+              [
+                5,
+                3,
+                8
+              ]
+            ],
+            "returns": 168
+          },
+          {
+            "args": [
+              [
+                9,
+                2,
+                6
+              ]
+            ],
+            "returns": 171
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
     }
   ]
 }

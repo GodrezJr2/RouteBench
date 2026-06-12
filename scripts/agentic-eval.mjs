@@ -152,6 +152,180 @@ test('firstFreeSlot accepts a slot that ends exactly at dayEnd', () => {
 });
 `;
 
+// lru-repair: an LRU cache over a doubly-linked list + map across two files.
+// Three coupled bugs: (1) back() returns the front node so the wrong entry is
+// evicted, (2) get() never moves the touched node to the front so recency never
+// updates, and (3) both interact — the correct victim is only visible from the
+// eviction-order tests. Harder than schedule: the bugs are in pointer/recency
+// bookkeeping, not arithmetic.
+const LRU_DLL_BUGGY = `export function createList() {
+  const head = { key: null, val: null, prev: null, next: null };
+  const tail = { key: null, val: null, prev: null, next: null };
+  head.next = tail; tail.prev = head;
+  return {
+    head, tail,
+    addFront(node) {
+      node.prev = head;
+      node.next = head.next;
+      head.next.prev = node;
+      head.next = node;
+    },
+    remove(node) {
+      node.prev.next = node.next;
+      node.next.prev = node.prev;
+    },
+    // BUG: returns the FRONT (most-recent) node; the LRU victim is at the back
+    back() { return this.head.next; },
+  };
+}
+`;
+
+const LRU_CACHE_BUGGY = `import { createList } from './dll.js';
+
+export function createLRU(capacity) {
+  const map = new Map();
+  const list = createList();
+  return {
+    get(key) {
+      if (!map.has(key)) return -1;
+      const node = map.get(key);
+      // BUG: does not move the accessed node to the front, so recency never updates
+      return node.val;
+    },
+    put(key, val) {
+      if (map.has(key)) {
+        const node = map.get(key);
+        node.val = val;
+        list.remove(node);
+        list.addFront(node);
+        return;
+      }
+      const node = { key, val, prev: null, next: null };
+      map.set(key, node);
+      list.addFront(node);
+      if (map.size > capacity) {
+        const victim = list.back();
+        list.remove(victim);
+        map.delete(victim.key);
+      }
+    },
+  };
+}
+`;
+
+const LRU_TEST = `import { test } from 'node:test';
+import assert from 'node:assert';
+import { createLRU } from '../src/cache.js';
+
+test('evicts the least-recently-used entry', () => {
+  const c = createLRU(2);
+  c.put(1, 1); c.put(2, 2);
+  assert.strictEqual(c.get(1), 1);   // touch 1 -> 2 is now LRU
+  c.put(3, 3);                       // evicts 2
+  assert.strictEqual(c.get(2), -1);
+  assert.strictEqual(c.get(3), 3);
+});
+
+test('get refreshes recency', () => {
+  const c = createLRU(2);
+  c.put(1, 1); c.put(2, 2);
+  c.get(1); c.get(1);
+  c.put(3, 3);                       // 2 is LRU -> evicted, 1 survives
+  assert.strictEqual(c.get(1), 1);
+  assert.strictEqual(c.get(2), -1);
+});
+
+test('updating an existing key does not evict and keeps it recent', () => {
+  const c = createLRU(2);
+  c.put(1, 1); c.put(2, 2);
+  c.put(1, 10);                      // update, 1 most-recent
+  c.put(3, 3);                       // evicts 2
+  assert.strictEqual(c.get(1), 10);
+  assert.strictEqual(c.get(2), -1);
+  assert.strictEqual(c.get(3), 3);
+});
+`;
+
+// expr-repair: a recursive-descent arithmetic evaluator split into a tokenizer
+// and a parser. Three coupled bugs: (1) the tokenizer reads only one digit so
+// multi-digit numbers break, (2) subtraction is implemented as addition, and
+// (3) the parser has no parenthesis handling. Each bug is isolated by a
+// different test; a correct fix must touch both files.
+const EXPR_TOK_BUGGY = `export function tokenize(s) {
+  const tokens = [];
+  let i = 0;
+  while (i < s.length) {
+    const ch = s[i];
+    if (ch === ' ') { i++; continue; }
+    if (ch >= '0' && ch <= '9') {
+      // BUG: reads only a single digit, so multi-digit numbers are split
+      tokens.push({ type: 'num', value: Number(ch) });
+      i++;
+    } else {
+      tokens.push({ type: 'op', value: ch });
+      i++;
+    }
+  }
+  return tokens;
+}
+`;
+
+const EXPR_EVAL_BUGGY = `import { tokenize } from './tokenize.js';
+
+export function evaluate(expr) {
+  const tokens = tokenize(expr);
+  let pos = 0;
+  function parseExpr() {
+    let left = parseTerm();
+    while (pos < tokens.length && (tokens[pos].value === '+' || tokens[pos].value === '-')) {
+      const op = tokens[pos++].value;
+      const right = parseTerm();
+      // BUG: subtraction is added instead of subtracted
+      left = left + right;
+    }
+    return left;
+  }
+  function parseTerm() {
+    let left = parseFactor();
+    while (pos < tokens.length && (tokens[pos].value === '*' || tokens[pos].value === '/')) {
+      const op = tokens[pos++].value;
+      const right = parseFactor();
+      left = op === '*' ? left * right : left / right;
+    }
+    return left;
+  }
+  function parseFactor() {
+    const t = tokens[pos++];
+    // BUG: no parenthesis handling
+    return t.value;
+  }
+  return parseExpr();
+}
+`;
+
+const EXPR_TEST = `import { test } from 'node:test';
+import assert from 'node:assert';
+import { evaluate } from '../src/evaluate.js';
+
+test('operator precedence', () => {
+  assert.strictEqual(evaluate('2+3*4'), 14);
+  assert.strictEqual(evaluate('2*3+4'), 10);
+});
+
+test('multi-digit numbers', () => {
+  assert.strictEqual(evaluate('12+34'), 46);
+});
+
+test('left-associative subtraction', () => {
+  assert.strictEqual(evaluate('10-2-3'), 5);
+});
+
+test('parentheses override precedence', () => {
+  assert.strictEqual(evaluate('(2+3)*4'), 20);
+  assert.strictEqual(evaluate('2*(3+4*2)'), 22);
+});
+`;
+
 const tasks = [
   {
     id: 'cart_repair_001',
@@ -175,6 +349,30 @@ const tasks = [
       'src/intervals.js': INTERVALS_BUGGY,
       'src/schedule.js': SCHEDULE_BUGGY,
       'test/schedule.test.js': SCHEDULE_TEST,
+    },
+  },
+  {
+    id: 'lru_repair_001',
+    name: 'Fix LRU cache eviction + recency (2 files, 3 coupled bugs)',
+    test_cmd: ['node', '--test'],
+    protected_paths: ['test/'],
+    files: {
+      'package.json': PKG,
+      'src/dll.js': LRU_DLL_BUGGY,
+      'src/cache.js': LRU_CACHE_BUGGY,
+      'test/lru.test.js': LRU_TEST,
+    },
+  },
+  {
+    id: 'expr_repair_001',
+    name: 'Fix expression evaluator: tokenizer + precedence + parens (2 files, 3 bugs)',
+    test_cmd: ['node', '--test'],
+    protected_paths: ['test/'],
+    files: {
+      'package.json': PKG,
+      'src/tokenize.js': EXPR_TOK_BUGGY,
+      'src/evaluate.js': EXPR_EVAL_BUGGY,
+      'test/expr.test.js': EXPR_TEST,
     },
   },
 ];
