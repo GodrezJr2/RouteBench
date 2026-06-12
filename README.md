@@ -7,7 +7,7 @@
 [![CI](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml/badge.svg)](https://github.com/GodrezJr2/RouteBench/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-f97316.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522-339933.svg)](package.json)
-[![Tests](https://img.shields.io/badge/tests-201%20passing-brightgreen.svg)](#tests)
+[![Tests](https://img.shields.io/badge/tests-200%20passing-brightgreen.svg)](#tests)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-blueviolet.svg)](CONTRIBUTING.md)
 
 A local-first CLI **and** dashboard that profiles LLMs on **real, executed work** — running their code against unit tests, repairing broken repos turn-by-turn — and turns the numbers into a **routing decision** you can export straight into your gateway.
@@ -233,7 +233,7 @@ results/*.json · results/*.md · results/routing.json
 ## Tests
 
 ```bash
-npm test          # 201 passing
+npm test          # 200 passing
 npm run lint      # syntax check
 ```
 

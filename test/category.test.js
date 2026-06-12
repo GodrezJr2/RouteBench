@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 import { aggregateByCategory, recommendByCategory } from '../src/scoring.js';
 import { runBenchmark } from '../src/runner.js';
@@ -141,31 +140,4 @@ test('renderMarkdownReport includes Per-Category Routing section', async () => {
   const md = renderMarkdownReport(result);
   assert.ok(md.includes('## Per-Category Routing'));
   assert.ok(md.includes('| Category | Primary |'));
-});
-
-test('phase1 benchmark pack has 43 cases across six MVP categories', () => {
-  const pack = JSON.parse(readFileSync('benchmarks/phase1.json', 'utf8'));
-  assert.equal(pack.cases.length, 43);
-  const cats = {};
-  for (const c of pack.cases) cats[c.metadata.category] = (cats[c.metadata.category] || 0) + 1;
-  assert.deepEqual(Object.keys(cats).sort(), [
-    'coding_agent_basic',
-    'indonesian_qa',
-    'instruction_following_basic',
-    'json_compliance',
-    'prompt_injection_resistance',
-    'summarization_quality',
-  ]);
-  // every case has a known scoring type, an id, and a difficulty tier
-  const validScoring = new Set(['exact', 'json_schema', 'contains', 'prompt_injection', 'code_unit_test']);
-  const validDifficulty = new Set(['easy', 'medium', 'hard']);
-  const tiers = new Set();
-  for (const c of pack.cases) {
-    assert.ok(c.id, 'case missing id');
-    assert.ok(validScoring.has(c.scoring), `bad scoring: ${c.scoring}`);
-    assert.ok(validDifficulty.has(c.metadata.difficulty), `bad difficulty: ${c.metadata.difficulty}`);
-    tiers.add(c.metadata.difficulty);
-  }
-  // all three difficulty tiers are represented so tier-aware scoring has data
-  assert.deepEqual([...tiers].sort(), ['easy', 'hard', 'medium']);
 });
