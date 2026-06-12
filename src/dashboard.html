@@ -396,6 +396,17 @@
   .mitem { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; font-family: var(--mono); font-size: 11.5px; cursor: pointer; color: var(--ink-2); transition: all 0.15s; }
   .mitem:hover { background: var(--surface-2); color: var(--ink); }
   .mitem input { accent-color: var(--accent); margin: 0; width: 14px; height: 14px; }
+  .mitem .grow { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mtest { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-3); border-radius: 6px; padding: 2px 7px; cursor: pointer; line-height: 1.4; flex: none; transition: all 0.15s; }
+  .mtest:hover { border-color: var(--accent-line); color: var(--accent); background: var(--accent-soft); }
+  .mtest:disabled { opacity: 0.5; cursor: wait; }
+  .mres { font-family: var(--mono); font-size: 10.5px; flex: none; min-width: 40px; text-align: right; color: var(--ink-3); }
+  .mres.ok { color: #10b981; }
+  .mres.err { color: #ef4444; cursor: help; }
+  .mchip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--line-2); border-radius: 999px; font-family: var(--mono); font-size: 11px; color: var(--ink-2); background: var(--surface); }
+  .mchip .mtest { padding: 1px 6px; }
+  .mchip .x { cursor: pointer; color: var(--ink-3); font-weight: 600; padding: 0 2px; }
+  .mchip .x:hover { color: #ef4444; }
   
   .progress { height: 8px; background: var(--line-2); border-radius: 5px; overflow: hidden; margin-top: 16px; }
   .progress > i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #f97316); width: 0; transition: width .3s; }
@@ -516,7 +527,8 @@
       <div class="field" id="manual-models-field">
         <label>Manual model IDs <span id="manual-count" class="muted"></span></label>
         <textarea class="inp" id="manual-models" placeholder="oc/north-mini-code-free&#10;oc/another-model" autocomplete="off" spellcheck="false"></textarea>
-        <div class="status">Use commas, spaces, or new lines. Manual IDs are sent as-is when discovery misses a model.</div>
+        <div class="status">Use commas, spaces, or new lines. Manual IDs are sent as-is when discovery misses a model. <strong>Test</strong> pings the model once to check it responds.</div>
+        <div class="chips" id="manual-chips" style="margin-top:8px"></div>
       </div>
       <div class="field" id="models-field" style="display:none">
         <label>Discovered models <span id="msel-count" class="muted"></span></label>
@@ -735,16 +747,43 @@ function renderModelList(){
   discovered.filter(function(m){ return m.toLowerCase().includes(q); }).slice(0,300).forEach(function(m){
     const cb=$("input",{type:"checkbox"}); cb.checked=selected.has(m);
     cb.addEventListener("change",function(){ if(cb.checked) selected.add(m); else selected.delete(m); updateRunBtn(); });
-    list.append($("label",{class:"mitem"}, cb, m));
+    const res=$("span",{class:"mres"});
+    const tbtn=$("button",{class:"mtest",type:"button"},"Test");
+    tbtn.addEventListener("click",function(ev){ ev.preventDefault(); ev.stopPropagation(); testModel(m,res,tbtn); });
+    list.append($("label",{class:"mitem"}, cb, $("span",{class:"grow"},m), tbtn, res));
   });
   updateRunBtn();
+}
+function renderManualChips(){
+  const box=gid("manual-chips"); if(!box) return; box.replaceChildren();
+  manualModels().forEach(function(m){
+    const res=$("span",{class:"mres"});
+    const tbtn=$("button",{class:"mtest",type:"button"},"Test");
+    tbtn.addEventListener("click",function(){ testModel(m,res,tbtn); });
+    const x=$("span",{class:"x",title:"remove"},"×");
+    x.addEventListener("click",function(){ const remain=manualModels().filter(function(v){ return v!==m; }); gid("manual-models").value=remain.join("\n"); updateRunBtn(); });
+    box.append($("span",{class:"mchip"}, m, tbtn, res, x));
+  });
+}
+async function testModel(id,res,btn){
+  const url=gid("f-url").value.trim(), key=gid("f-key").value.trim();
+  if(!url){ res.className="mres err"; res.textContent="no url"; res.title="enter an endpoint base URL first"; return; }
+  res.className="mres"; res.textContent="…"; if(btn) btn.disabled=true;
+  try{
+    const r=await fetch("/api/chat-compare",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({base_url:url,api_key:key,models:[id],system:"You are a helpful assistant.",prompt:"Reply with exactly: OK"})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||"test failed");
+    const row=(d.results||[])[0]||{};
+    if(row.error){ res.className="mres err"; res.textContent="✗"; res.title=row.error; }
+    else { res.className="mres ok"; res.textContent="✓ "+row.latency_ms+"ms"; res.title=(row.output||"").slice(0,200)||"(empty reply)"; }
+  }catch(e){ res.className="mres err"; res.textContent="✗"; res.title=String(e.message); }
+  finally{ if(btn) btn.disabled=false; }
 }
 function manualModels(){
   const seen=new Set(), out=[];
   (gid("manual-models").value||"").split(/[\s,]+/).map(function(m){ return m.trim(); }).filter(Boolean).forEach(function(m){ if(!seen.has(m)){ seen.add(m); out.push(m); } });
   return out;
 }
-function updateRunBtn(){ const manual=manualModels(); gid("manual-count").textContent=manual.length?"· "+manual.length+" manual":""; gid("msel-count").textContent="· "+selected.size+" selected"; gid("b-run").disabled=(selected.size+manual.length)<1; }
+function updateRunBtn(){ const manual=manualModels(); gid("manual-count").textContent=manual.length?"· "+manual.length+" manual":""; gid("msel-count").textContent="· "+selected.size+" selected"; gid("b-run").disabled=(selected.size+manual.length)<1; renderManualChips(); }
 async function runBench(){
   const models=Array.from(new Set(Array.from(selected).concat(manualModels()))), bench=gid("f-bench").value, url=gid("f-url").value.trim(), key=gid("f-key").value.trim(), max=gid("f-max").value.trim();
   const st=gid("run-status"), prog=gid("prog"), bar=prog.firstElementChild;

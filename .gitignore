@@ -10,3 +10,7 @@ rtk/
 CLAUDE.md
 routebench_prd.md
 .remember/
+
+# browser test artifacts
+.playwright-mcp/
+*.playwright-mcp
