@@ -106,6 +106,35 @@ test('records scorer_failure when scorer throws', async () => {
   assert.equal(row.score, 0);
 });
 
+test('adds deterministic failure diagnosis to failed completed rows', async () => {
+  const client = async () => ({ output: '392', usage: { total_tokens: 3 } });
+
+  const result = await runBenchmark({ models: ['bad-model'], cases: [cases[0]], client, now: () => 1000 });
+  const row = result.results[0];
+
+  assert.equal(row.status, 'completed');
+  assert.equal(row.passed, false);
+  assert.equal(row.failure_diagnosis.type, 'exact_mismatch');
+  assert.match(row.failure_diagnosis.summary, /Expected exact output/);
+  assert.equal(row.failure_diagnosis.evidence.expected, '391');
+  assert.equal(row.failure_diagnosis.evidence.actual, '392');
+});
+
+test('adds repeat-run diagnosis when mean score falls below passing threshold', async () => {
+  const outputs = ['391', '0', '0'];
+  const client = async () => ({ output: outputs.shift(), usage: { total_tokens: 3 } });
+
+  const result = await runBenchmark({ models: ['noisy-model'], cases: [cases[0]], client, now: () => 1000, repeats: 3 });
+  const row = result.results[0];
+
+  assert.equal(row.runs, 3);
+  assert.equal(row.score, 33);
+  assert.equal(row.passed, false);
+  assert.equal(row.failure_diagnosis.type, 'repeat_low_mean');
+  assert.match(row.failure_diagnosis.summary, /Mean score 33/);
+  assert.deepEqual(row.failure_diagnosis.evidence.score_samples, [100, 0, 0]);
+});
+
 test('calculates estimated cost when model_costs provided', async () => {
   const client = async () => ({ output: '391', usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 } });
   const modelCosts = { 'cost-model': { input_per_1k: 0.002, output_per_1k: 0.004 } };

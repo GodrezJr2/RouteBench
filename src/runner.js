@@ -5,7 +5,9 @@ import {
   aggregateByCategory,
   recommendByCategory,
   aggregateByDifficulty,
+  aggregateByLanguage,
 } from './scoring.js';
+import { diagnoseCaseFailure } from './caseDiagnosis.js';
 import { generateDiagnosis } from './diagnosis.js';
 
 function calcCost(usage, costs) {
@@ -16,18 +18,26 @@ function calcCost(usage, costs) {
   return Number(cost.toFixed(6));
 }
 
+function withFailureDiagnosis(row, testCase) {
+  return {
+    ...row,
+    failure_diagnosis: diagnoseCaseFailure({ testCase, output: row.output, row }),
+  };
+}
+
 // Run a single model/case pair and return one result row.
 async function runCase({ model, testCase, client, now, modelCosts, judge, judgeCategories }) {
   const category = testCase.metadata?.category ?? 'uncategorized';
   const difficulty = testCase.metadata?.difficulty ?? 'unspecified';
-  const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category, difficulty };
+  const language = testCase.metadata?.language ?? null;
+  const base = { model, test_case_id: testCase.id, test_case_name: testCase.name, category, difficulty, language };
   const start = now();
 
   let response;
   try {
     response = await client({ model, testCase });
   } catch (error) {
-    return {
+    return withFailureDiagnosis({
       ...base,
       status: 'provider_error',
       output: '',
@@ -41,13 +51,13 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
       error_status: error.status ?? null,
       error_body_preview: error.body_preview ?? null,
       error_message: `model ${model} failed case ${testCase.id}: ${error.message ?? 'unknown model request error'}`,
-    };
+    }, testCase);
   }
 
   const latencyMs = Math.max(0, now() - start);
 
   if (!response.output || response.output.trim() === '') {
-    return {
+    return withFailureDiagnosis({
       ...base,
       status: 'model_failure',
       output: '',
@@ -61,7 +71,7 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
       error_status: null,
       error_body_preview: null,
       error_message: `model ${model} returned empty output for case ${testCase.id}`,
-    };
+    }, testCase);
   }
 
   const useJudge = judge && judgeCategories?.includes(category);
@@ -86,7 +96,7 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
       scored = scoreOutput(response.output, testCase);
     }
   } catch (scorerError) {
-    return {
+    return withFailureDiagnosis({
       ...base,
       status: 'scorer_failure',
       output: response.output,
@@ -100,10 +110,10 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
       error_status: null,
       error_body_preview: null,
       error_message: `scorer failed for model ${model} case ${testCase.id}: ${scorerError.message}`,
-    };
+    }, testCase);
   }
 
-  return {
+  return withFailureDiagnosis({
     ...base,
     status: 'completed',
     output: response.output,
@@ -116,7 +126,7 @@ async function runCase({ model, testCase, client, now, modelCosts, judge, judgeC
     latency_ms: latencyMs,
     usage: response.usage ?? null,
     estimated_cost_usd: calcCost(response.usage, modelCosts?.[model]),
-  };
+  }, testCase);
 }
 
 function mean(values) {
@@ -144,17 +154,24 @@ function collapseRepeats(rows, repeats) {
   }
 
   const meanScore = Math.round(mean(scores));
+  const spread = stddev(scores);
+  const failureDiagnosis = meanScore >= 70 ? null : {
+    type: 'repeat_low_mean',
+    summary: `Mean score ${meanScore} across ${successes.length}/${repeats} runs is below the passing threshold.`,
+    evidence: { score_samples: scores, success_count: successes.length, runs: repeats },
+  };
   return {
     ...successes[0],
     status: 'completed',
     score: meanScore,
     passed: meanScore >= 70,
-    score_reason: `mean of ${successes.length}/${repeats} runs (±${stddev(scores).toFixed(1)})`,
+    score_reason: `mean of ${successes.length}/${repeats} runs (±${spread.toFixed(1)})`,
     latency_ms: Math.round(mean(latencies)),
     runs: repeats,
     success_count: successes.length,
-    score_stddev: Number(stddev(scores).toFixed(2)),
+    score_stddev: Number(spread.toFixed(2)),
     score_samples: scores,
+    failure_diagnosis: failureDiagnosis,
     estimated_cost_usd: costs.length ? Number(costs.reduce((s, c) => s + c, 0).toFixed(6)) : null,
   };
 }
@@ -216,6 +233,7 @@ export async function runBenchmark({
   const categoryAggregate = aggregateByCategory(results);
   const categoryRouting = recommendByCategory(categoryAggregate);
   const difficultyAggregate = aggregateByDifficulty(results);
+  const languageAggregate = aggregateByLanguage(results);
   const diagnosis = generateDiagnosis({ aggregate, categoryAggregate, categoryRouting });
 
   return {
@@ -231,6 +249,7 @@ export async function runBenchmark({
     category_aggregate: categoryAggregate,
     category_routing: categoryRouting,
     difficulty_aggregate: difficultyAggregate,
+    language_aggregate: languageAggregate,
     diagnosis,
   };
 }

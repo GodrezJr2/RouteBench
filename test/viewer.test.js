@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { sanitizePath, listResultFiles, HTML_PAGE, getConfigSummary, listBenchmarkPacks, createViewerServer } from '../src/viewerServer.js';
+import { sanitizePath, listResultFiles, HTML_PAGE, COMPARE_PAGE, getConfigSummary, listBenchmarkPacks, createViewerServer } from '../src/viewerServer.js';
 import { createSampleResult } from '../src/cliCore.js';
 
 function listen(server) {
@@ -82,16 +82,59 @@ test('listResultFiles uses forward slashes in returned paths', async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-test('HTML_PAGE is a non-empty HTML string with required sections', () => {
+test('HTML_PAGE is the redesigned dashboard', () => {
   assert.equal(typeof HTML_PAGE, 'string');
   assert.ok(HTML_PAGE.includes('<!DOCTYPE html>'));
   assert.ok(HTML_PAGE.includes('RouteBench'));
-  assert.ok(HTML_PAGE.includes('/api/files'));
-  assert.ok(HTML_PAGE.includes('/api/file'));
-  assert.ok(HTML_PAGE.includes('/api/config'));
-  assert.ok(HTML_PAGE.includes('/api/run'));
-  assert.ok(HTML_PAGE.includes('/api/history'));
+  assert.ok(HTML_PAGE.includes('/api/dashboard'));
+  assert.ok(HTML_PAGE.includes('/api/runs'));
+  assert.ok(HTML_PAGE.includes('Connect & Run'));
+  assert.ok(!HTML_PAGE.includes('oklch(11%'));
+  assert.ok(!HTML_PAGE.includes('Failure Diagnosis'));
   assert.ok(HTML_PAGE.length > 2000);
+});
+
+test('GET / serves the redesigned dashboard instead of the old dark viewer', async () => {
+  await withExportServer(async ({ port }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/`);
+    assert.equal(r.status, 200);
+    assert.ok(r.headers.get('content-type').includes('text/html'));
+    const html = await r.text();
+    assert.ok(html.includes('/api/dashboard'));
+    assert.ok(html.includes('Connect & Run'));
+    assert.ok(!html.includes('oklch(11%'));
+    assert.ok(!html.includes('Failure Diagnosis'));
+  });
+});
+
+test('dashboard includes product UI polish affordances', () => {
+  assert.ok(HTML_PAGE.includes('class="skip-link"'));
+  assert.ok(HTML_PAGE.includes('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(HTML_PAGE.includes('skeleton-card'));
+  assert.ok(!/background-clip:\s*text/.test(HTML_PAGE));
+  assert.ok(!/border-left:\s*[2-9]px/.test(HTML_PAGE));
+});
+
+test('compare page uses the same accessible light product shell', () => {
+  assert.ok(COMPARE_PAGE.includes('class="skip-link"'));
+  assert.ok(COMPARE_PAGE.includes('@media (prefers-reduced-motion: reduce)'));
+  assert.ok(COMPARE_PAGE.includes('github.min.css'));
+  assert.ok(!/background-clip:\s*text/.test(COMPARE_PAGE));
+});
+
+test('dashboard supports manual model IDs when discovery misses a model', () => {
+  assert.ok(HTML_PAGE.includes('manual-models'));
+  assert.ok(HTML_PAGE.includes('manualModels'));
+  assert.ok(HTML_PAGE.includes('oc/north-mini-code-free'));
+  assert.ok(HTML_PAGE.includes('manual.length'));
+  assert.ok(HTML_PAGE.includes('Array.from(selected).concat(manualModels())'));
+});
+
+test('compare page can add a manual model without discovery', () => {
+  assert.ok(COMPARE_PAGE.includes('manual-model'));
+  assert.ok(COMPARE_PAGE.includes('addManualModel'));
+  assert.ok(COMPARE_PAGE.includes('oc/north-mini-code-free'));
+  assert.ok(COMPARE_PAGE.includes('manual.value.trim()'));
 });
 
 test('getConfigSummary returns summary without api_key', () => {
@@ -184,4 +227,73 @@ test('POST /api/run returns cases_per_pack and models for progress detail', asyn
     assert.equal(json.total_cases, 60);
     assert.deepEqual(json.models, ['m1', 'm2']);
   });
+});
+
+test('GET /api/runs lists result files with summaries', async () => {
+  await withExportServer(async ({ port, resultPath }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/api/runs`);
+    assert.equal(r.status, 200);
+    const json = await r.json();
+    assert.ok(Array.isArray(json.runs));
+    assert.ok(json.runs.some((run) => run.path.endsWith('sample.json')));
+    assert.ok(json.runs.every((run) => Array.isArray(run.models)));
+  });
+});
+
+test('GET /api/dashboard builds a payload from a result file', async () => {
+  await withExportServer(async ({ port, resultPath }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/api/dashboard?path=${encodeURIComponent(resultPath)}`);
+    assert.equal(r.status, 200);
+    const json = await r.json();
+    assert.ok(Array.isArray(json.profiles));
+    assert.ok(Array.isArray(json.ranked));
+    assert.ok(Array.isArray(json.verdict));
+    assert.ok('languages' in json);
+  });
+});
+
+test('GET /api/dashboard blocks path traversal with 403', async () => {
+  await withExportServer(async ({ port }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/api/dashboard?path=${encodeURIComponent('../../secrets.json')}`);
+    assert.equal(r.status, 403);
+  });
+});
+
+test('POST /api/chat-compare requires models and a prompt', async () => {
+  await withExportServer(async ({ port }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/api/chat-compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ models: [], prompt: '' }),
+    });
+    assert.equal(r.status, 400);
+    const json = await r.json();
+    assert.ok(/model|prompt|requests/i.test(json.error));
+  });
+});
+
+test('POST /api/chat-compare rejects empty multi-turn requests[]', async () => {
+  await withExportServer(async ({ port }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/api/chat-compare`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ model: 'm' }] }), // no messages array → filtered out
+    });
+    assert.equal(r.status, 400);
+  });
+});
+
+test('GET /compare serves the chat-compare page', async () => {
+  await withExportServer(async ({ port }) => {
+    const r = await fetch(`http://127.0.0.1:${port}/compare`);
+    assert.equal(r.status, 200);
+    assert.ok(r.headers.get('content-type').includes('text/html'));
+    const html = await r.text();
+    assert.ok(html.includes('/api/chat-compare'));
+  });
+});
+
+test('COMPARE_PAGE wires the chat-compare and discover endpoints', () => {
+  assert.ok(COMPARE_PAGE.includes('/api/chat-compare'));
+  assert.ok(COMPARE_PAGE.includes('/api/discover'));
 });

@@ -10,11 +10,13 @@ import { createModelsClient } from './modelsClient.js';
 import { createOpenAICompatibleClient } from './openaiClient.js';
 import { createPromptfooConfig } from './promptfoo.js';
 import { renderMarkdownReport } from './report.js';
+import { buildProfiles, renderProfileReport } from './profile.js';
 import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
 import { createJudge, DEFAULT_JUDGE_CATEGORIES } from './judge.js';
+import { getPreset, formatPresetsTable } from './presets.js';
 
-const EMPTY_FILE_CONF = { baseUrl: '', apiKey: '', models: [], timeoutMs: 0, modelCosts: {} };
+const EMPTY_FILE_CONF = { baseUrl: '', apiKey: '', models: [], timeoutMs: 0, concurrency: 0, modelCosts: {}, routingPreference: '' };
 
 async function tryLoadFileConfig(configPath = 'routebench.config.json') {
   try {
@@ -78,14 +80,23 @@ export function formatModelsList(discovery) {
   return lines.join('\n');
 }
 
-export async function discoverModels({ outputPath, env = process.env }) {
+export async function discoverModels({ outputPath, filterProvider, env = process.env }) {
   const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
   const envConf = loadConfigFromEnv(env);
   const config = validateConfig({ ...mergeConfigs(fileConf, envConf), models: ['placeholder-a', 'placeholder-b'] });
   const client = createModelsClient(config);
   const discovery = await client();
-  if (outputPath) await writeJson(outputPath, discovery);
-  return discovery;
+  let result = discovery;
+  if (filterProvider) {
+    const prefix = filterProvider.endsWith('/') ? filterProvider : `${filterProvider}/`;
+    result = { ...discovery, models: discovery.models.filter((m) => m.id.startsWith(prefix)) };
+  }
+  if (outputPath) await writeJson(outputPath, result);
+  return result;
+}
+
+export function listAvailablePresets() {
+  return formatPresetsTable();
 }
 
 export async function createSampleResult() {
@@ -136,17 +147,50 @@ export async function writeReportFromFile({ inputPath, outputPath }) {
   return writeReportFromResult({ result, outputPath });
 }
 
+// Build fused per-model Profile Cards from a benchmark result JSON, optionally
+// enriched with an agentic-results.json (its `rows` add solve-rate / turns).
+export async function runProfile({ inputPath, agenticPath, outputPath, reportPath }) {
+  const result = JSON.parse(await readFile(inputPath, 'utf8'));
+  let agenticRows = null;
+  if (agenticPath) {
+    const agentic = JSON.parse(await readFile(agenticPath, 'utf8'));
+    agenticRows = Array.isArray(agentic) ? agentic : (agentic.rows ?? null);
+  }
+  const profiles = buildProfiles(result, agenticRows);
+  const generatedAt = result.finished_at ?? null;
+  if (outputPath) await writeJson(outputPath, { generated_from: inputPath, agentic_from: agenticPath ?? null, profiles });
+  const markdown = renderProfileReport(profiles, { generatedAt });
+  if (reportPath) await writeText(reportPath, markdown);
+  return { profiles, markdown };
+}
+
 export async function writeRouteExportFromResult({ result, outputPath, baseUrl = '' }) {
   const json = renderRouteExport(result, { baseUrl });
   await writeJson(outputPath, json);
   return json;
 }
 
-export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, prefer, env = process.env }) {
+export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, routeOutputPath, prefer, presetId, env = process.env }) {
   const benchmark = await loadBenchmark(benchmarkPath);
   const fileConf = (await tryLoadFileConfig()) ?? EMPTY_FILE_CONF;
   const envConf = loadConfigFromEnv(env);
-  const config = validateConfig(mergeConfigs(fileConf, envConf));
+
+  // Apply preset: models/timeout/concurrency/preference fill-in.
+  // When --preset is explicitly given, preset models win over config-file models
+  // (explicit user intent). Only ROUTEBENCH_MODELS env can further override.
+  let baseConf = fileConf;
+  if (presetId) {
+    const preset = getPreset(presetId);
+    baseConf = {
+      ...fileConf,
+      models: envConf.models.length >= 2 ? fileConf.models : preset.models,
+      timeoutMs: fileConf.timeoutMs > 0 ? fileConf.timeoutMs : preset.timeout_ms,
+      concurrency: fileConf.concurrency > 0 ? fileConf.concurrency : preset.concurrency,
+      routingPreference: fileConf.routingPreference || preset.routing_preference,
+    };
+  }
+
+  const config = validateConfig(mergeConfigs(baseConf, envConf));
   const client = createOpenAICompatibleClient(config);
 
   // Guardrail: optionally cap cases per model, and surface the request count.
@@ -170,7 +214,8 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
         : DEFAULT_JUDGE_CATEGORIES)
     : [];
 
-  const resolvedPrefer = prefer || (fileConf.routing_preference) || 'balanced';
+  const resolvedPrefer = prefer || baseConf.routingPreference || 'balanced';
+  let progressDone = 0;
   const result = await runBenchmark({
     models: config.models,
     cases,
@@ -181,7 +226,13 @@ export async function runLiveBenchmark({ benchmarkPath, outputPath, reportPath, 
     judgeCategories,
     repeats,
     prefer: resolvedPrefer,
+    onProgress: (done, total) => {
+      progressDone = done;
+      const pct = Math.floor((done / total) * 100);
+      process.stdout.write(`\r  ${done}/${total} requests (${pct}%)...`);
+    },
   });
+  if (progressDone > 0) process.stdout.write('\n');
   const redact = [config.apiKey];
   await writeJson(outputPath, result, { redact });
   if (reportPath) await writeReportFromResult({ result, outputPath: reportPath, redact });

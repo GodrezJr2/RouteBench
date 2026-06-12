@@ -6,14 +6,17 @@ import { fileURLToPath } from 'node:url';
 
 import { loadConfigFromEnv, loadConfigFromFile, mergeConfigs } from './config.js';
 import { createModelsClient } from './modelsClient.js';
-import { createOpenAICompatibleClient } from './openaiClient.js';
+import { createOpenAICompatibleClient, createChatClient } from './openaiClient.js';
 import { renderMarkdownReport } from './report.js';
+import { buildDashboard } from './profile.js';
 import { renderRouteExport } from './routeExport.js';
 import { runBenchmark } from './runner.js';
 import { resultToHistoryEntry } from './history.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-export const HTML_PAGE = readFileSync(join(__dirname, 'viewer.html'), 'utf8');
+export const HTML_PAGE = readFileSync(join(__dirname, 'dashboard.html'), 'utf8');
+export const DASHBOARD_PAGE = HTML_PAGE;
+export const COMPARE_PAGE = readFileSync(join(__dirname, 'compare.html'), 'utf8');
 
 export function sanitizePath(filePath, resultsDir) {
   if (!filePath) throw new Error('file path required');
@@ -109,10 +112,63 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
       return;
     }
 
+    if (url.pathname === '/dashboard') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(DASHBOARD_PAGE);
+      return;
+    }
+
+    if (url.pathname === '/compare') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(COMPARE_PAGE);
+      return;
+    }
+
     if (url.pathname === '/api/files') {
       const files = await listResultFiles(resultsDir);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ files }));
+      return;
+    }
+
+    // Result files that carry a full benchmark aggregate, with light summaries
+    // for the dashboard run selector. Skips routing/profile/compare exports.
+    if (url.pathname === '/api/runs') {
+      const files = await listResultFiles(resultsDir);
+      const runs = [];
+      for (const f of files) {
+        try {
+          const data = JSON.parse(await readFile(f, 'utf8'));
+          if (data.schema_version === 'routebench.phase0.v1' && data.aggregate?.models) {
+            runs.push({ path: f, models: data.models ?? [], finished_at: data.finished_at ?? null, cases: (data.test_cases ?? []).length });
+          }
+        } catch { /* skip unreadable / non-result files */ }
+      }
+      runs.sort((a, b) => String(b.finished_at).localeCompare(String(a.finished_at)));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ runs }));
+      return;
+    }
+
+    // Fully-shaped dashboard payload built from one result file, auto-enriched
+    // with results/agentic-results.json when present.
+    if (url.pathname === '/api/dashboard') {
+      const filePath = url.searchParams.get('path');
+      try {
+        const safe = sanitizePath(filePath, resultsDir);
+        const result = JSON.parse(await readFile(safe, 'utf8'));
+        let agenticRows = null;
+        try {
+          const agentic = JSON.parse(await readFile(join(resultsDir, 'agentic-results.json'), 'utf8'));
+          agenticRows = Array.isArray(agentic) ? agentic : (agentic.rows ?? null);
+        } catch { /* no agentic results — optional */ }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(buildDashboard(result, agenticRows)));
+      } catch (err) {
+        const status = err.message.includes('traversal') || err.message.includes('required') ? 403 : 404;
+        res.writeHead(status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
 
@@ -164,6 +220,57 @@ export function createViewerServer({ port = 3001, resultsDir = 'results', histor
         res.writeHead(502, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
       }
+      return;
+    }
+
+    // Compare model outputs side by side. Two shapes:
+    //  - single-turn:  { models:[], system, prompt }
+    //  - multi-turn :  { requests:[{ model, messages:[{role,content}] }] }  (each
+    //    model carries its own conversation, since their replies differ)
+    if (url.pathname === '/api/chat-compare' && req.method === 'POST') {
+      const body = await readBody(req);
+      const conf = await tryLoadConfig();
+      const baseUrl = (typeof body.base_url === 'string' && body.base_url.trim()) ? body.base_url.trim() : conf.baseUrl;
+      const apiKey = (typeof body.api_key === 'string' && body.api_key.trim()) ? body.api_key.trim() : (conf.apiKey || '');
+      if (!baseUrl) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'no endpoint configured — set a base URL' }));
+        return;
+      }
+
+      let jobs;
+      if (Array.isArray(body.requests)) {
+        jobs = body.requests
+          .filter((r) => r && typeof r.model === 'string' && Array.isArray(r.messages))
+          .slice(0, 6)
+          .map((r) => ({ model: r.model, messages: r.messages }));
+      } else {
+        const models = Array.isArray(body.models) ? body.models.map(String).filter(Boolean).slice(0, 6) : [];
+        const prompt = typeof body.prompt === 'string' ? body.prompt : '';
+        const system = (typeof body.system === 'string' && body.system.trim()) ? body.system : 'You are a helpful assistant.';
+        if (models.length && prompt.trim()) {
+          const messages = [{ role: 'system', content: system }, { role: 'user', content: prompt }];
+          jobs = models.map((model) => ({ model, messages }));
+        }
+      }
+      if (!jobs || jobs.length === 0) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'at least 1 model and a prompt (or requests[]) are required' }));
+        return;
+      }
+
+      const client = createChatClient({ baseUrl, apiKey, timeoutMs: conf.timeoutMs });
+      const results = await Promise.all(jobs.map(async ({ model, messages }) => {
+        const start = Date.now();
+        try {
+          const r = await client({ model, messages });
+          return { model, output: r.output ?? '', usage: r.usage ?? null, latency_ms: Date.now() - start };
+        } catch (err) {
+          return { model, error: err.message ?? 'request failed', latency_ms: Date.now() - start };
+        }
+      }));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ results }));
       return;
     }
 

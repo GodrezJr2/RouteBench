@@ -1,4 +1,6 @@
 import vm from 'node:vm';
+import { extractCode } from './extractCode.js';
+import { scoreCodeExec } from './codeExec.js';
 
 // Strip <think>...</think> blocks emitted by reasoning models (MiniMax M3,
 // DeepSeek-R1, QwQ, etc.) before scoring. The thinking trace is internal
@@ -18,12 +20,6 @@ function parseJsonStrict(output) {
     // reporting a parse failure — avoids false-negative 0 scores.
     return JSON.parse(extractCode(cleaned));
   }
-}
-
-// Pull the first fenced code block if present, else use the whole output.
-function extractCode(output) {
-  const fence = output.match(/```(?:[a-zA-Z0-9]+)?\s*\n([\s\S]*?)```/);
-  return (fence ? fence[1] : output).trim();
 }
 
 // Run model-generated JavaScript against declared cases in a fresh vm context.
@@ -135,7 +131,7 @@ function scoreExact(output, testCase) {
 // Lowercase and collapse runs of whitespace so multi-word tokens still match
 // across newlines/double-spaces (e.g. "version  control" vs "version control").
 function normalizeContains(text) {
-  return String(text).toLowerCase().replace(/\s+/g, ' ').trim();
+  return String(text).toLowerCase().replace(/\s+/g, ' ').replace(/ \+ /g, '+').trim();
 }
 
 function scoreContains(output, testCase) {
@@ -185,6 +181,8 @@ export function scoreOutput(rawOutput, testCase) {
       return scorePromptInjection(output, testCase);
     case 'code_unit_test':
       return scoreCodeUnitTest(output, testCase);
+    case 'code_exec':
+      return scoreCodeExec(output, testCase);
     default:
       throw new Error(`unknown scoring type: ${testCase.scoring}`);
   }
@@ -256,6 +254,40 @@ export function aggregateByDifficulty(results) {
   return out;
 }
 
+// Per-language aggregation: surfaces uneven strength across languages — a model
+// can ace Python and stumble on Java. Only cases that tag metadata.language
+// participate; untagged cases are skipped so mixed packs don't pollute it.
+export function aggregateByLanguage(results) {
+  const langs = new Map();
+  for (const result of results) {
+    const lang = result.language;
+    if (!lang) continue;
+    if (!langs.has(lang)) langs.set(lang, new Map());
+    const models = langs.get(lang);
+    if (!models.has(result.model)) models.set(result.model, []);
+    models.get(result.model).push(result);
+  }
+
+  const out = {};
+  for (const [lang, models] of langs) {
+    const modelStats = {};
+    for (const [model, rows] of models) {
+      const count = rows.length;
+      const scoreSum = rows.reduce((sum, r) => sum + Number(r.score ?? 0), 0);
+      const errorCount = rows.filter((r) => r.status !== 'completed').length;
+      modelStats[model] = {
+        model,
+        language: lang,
+        test_count: count,
+        avg_score: Math.round(scoreSum / count),
+        error_rate: Number((errorCount / count).toFixed(4)),
+      };
+    }
+    out[lang] = { models: modelStats };
+  }
+  return out;
+}
+
 // Stable easy → medium → hard ordering, unknown tiers last (alphabetical).
 export function sortDifficultyTiers(tiers) {
   return [...tiers].sort((a, b) => {
@@ -318,6 +350,19 @@ export function aggregateResults(results) {
     const scoreStddev = stddevRows.length > 0
       ? Number((stddevRows.reduce((sum, r) => sum + r.score_stddev, 0) / stddevRows.length).toFixed(2))
       : null;
+    // Token usage, incl. prompt-cache hits. Providers report cached prompt
+    // tokens as usage.prompt_tokens_details.cached_tokens (OpenAI) or
+    // usage.cached_tokens; both are cheaper than fresh input. A high cache-hit
+    // rate means a model/provider is re-serving context cheaply — useful for
+    // cost-aware routing on long, repetitive sessions.
+    const usageRows = modelResults.filter((result) => result.usage);
+    const promptTokens = usageRows.reduce((sum, r) => sum + Number(r.usage.prompt_tokens ?? 0), 0);
+    const completionTokens = usageRows.reduce((sum, r) => sum + Number(r.usage.completion_tokens ?? 0), 0);
+    const cachedTokens = usageRows.reduce(
+      (sum, r) => sum + Number(r.usage.prompt_tokens_details?.cached_tokens ?? r.usage.cached_tokens ?? 0),
+      0,
+    );
+    const hasTokens = usageRows.length > 0;
     models[model] = {
       model,
       test_count: count,
@@ -327,6 +372,13 @@ export function aggregateResults(results) {
       error_rate: Number((errorCount / count).toFixed(4)),
       total_estimated_cost_usd: totalCost,
       score_stddev: scoreStddev,
+      total_prompt_tokens: hasTokens ? promptTokens : null,
+      total_completion_tokens: hasTokens ? completionTokens : null,
+      total_cached_tokens: hasTokens ? cachedTokens : null,
+      // Fraction of prompt tokens served from cache (0 when none cached / unknown).
+      cache_hit_rate: hasTokens && promptTokens > 0
+        ? Number((cachedTokens / promptTokens).toFixed(4))
+        : null,
     };
   }
 

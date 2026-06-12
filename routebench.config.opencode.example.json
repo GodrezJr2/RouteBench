@@ -1,0 +1,13 @@
+{
+  "base_url": "https://9router.home/v1",
+  "api_key": "sk-9router",
+  "models": [
+    "oc/deepseek-v4-flash-free",
+    "oc/nemotron-3-ultra-free",
+    "oc/north-mini-code-free",
+    "oc/mimo-v2.5-free"
+  ],
+  "timeout_ms": 120000,
+  "concurrency": 2,
+  "routing_preference": "quality"
+}

@@ -4,3 +4,4 @@ promptfooconfig.yaml
 routebench.config.json
 .env
 *.local
+rtk/

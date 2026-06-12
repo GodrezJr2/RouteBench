@@ -1,0 +1,915 @@
+{
+  "id": "polyglot_hard_v1",
+  "name": "RouteBench Polyglot Hard v1",
+  "description": "18-case hard pack for per-language profiling + security. 12 execution cases (4 hard algorithms x Python/Java/JavaScript, run for REAL via code_exec) tagged by language for the Per-Language Breakdown, plus 6 CWE/security detection cases (language-agnostic reasoning). Reveals where a model is strong vs weak per language and on security.",
+  "cases": [
+    {
+      "id": "trap_py",
+      "name": "trap (Python)",
+      "system": "Write only a Python function named trap(height). No markdown, no explanation, no test code.",
+      "prompt": "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining. Example: [0,1,0,2,1,0,1,3,2,1,2,1] traps 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "trap",
+        "cases": [
+          {
+            "args": [
+              [
+                0,
+                1,
+                0,
+                2,
+                1,
+                0,
+                1,
+                3,
+                2,
+                1,
+                2,
+                1
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                4,
+                2,
+                0,
+                3,
+                2,
+                5
+              ]
+            ],
+            "returns": 9
+          },
+          {
+            "args": [
+              []
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                3,
+                2,
+                1
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                5
+              ]
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "trap_java",
+      "name": "trap (Java)",
+      "system": "Write only a Java class named Solution containing: public static int trap(int[] height). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining. Example: [0,1,0,2,1,0,1,3,2,1,2,1] traps 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "trap",
+        "cases": [
+          {
+            "args": [
+              [
+                0,
+                1,
+                0,
+                2,
+                1,
+                0,
+                1,
+                3,
+                2,
+                1,
+                2,
+                1
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                4,
+                2,
+                0,
+                3,
+                2,
+                5
+              ]
+            ],
+            "returns": 9
+          },
+          {
+            "args": [
+              []
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                3,
+                2,
+                1
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                5
+              ]
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "trap_js",
+      "name": "trap (JavaScript)",
+      "system": "Write only a JavaScript function named trap(height). No markdown, no explanation, no test code.",
+      "prompt": "Given n non-negative integers representing an elevation map where the width of each bar is 1, compute how much water it can trap after raining. Example: [0,1,0,2,1,0,1,3,2,1,2,1] traps 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "trap",
+        "cases": [
+          {
+            "args": [
+              [
+                0,
+                1,
+                0,
+                2,
+                1,
+                0,
+                1,
+                3,
+                2,
+                1,
+                2,
+                1
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                4,
+                2,
+                0,
+                3,
+                2,
+                5
+              ]
+            ],
+            "returns": 9
+          },
+          {
+            "args": [
+              []
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                1,
+                2,
+                3
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                3,
+                2,
+                1
+              ]
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              [
+                5
+              ]
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "coin_py",
+      "name": "coinChange (Python)",
+      "system": "Write only a Python function named coinChange(coins, amount). No markdown, no explanation, no test code.",
+      "prompt": "Given coin denominations and a target amount, return the minimum number of coins needed to make the amount, or -1 if impossible. You may use each denomination unlimited times. Greedy does NOT always work (e.g. coins [1,3,4], amount 6 needs 2 coins, not 3).",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "coinChange",
+        "cases": [
+          {
+            "args": [
+              [
+                1,
+                2,
+                5
+              ],
+              11
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                2
+              ],
+              3
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                1,
+                3,
+                4
+              ],
+              6
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              [
+                1,
+                5,
+                11
+              ],
+              15
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                1
+              ],
+              0
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "coin_java",
+      "name": "coinChange (Java)",
+      "system": "Write only a Java class named Solution containing: public static int coinChange(int[] coins, int amount). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Given coin denominations and a target amount, return the minimum number of coins needed to make the amount, or -1 if impossible. You may use each denomination unlimited times. Greedy does NOT always work (e.g. coins [1,3,4], amount 6 needs 2 coins, not 3).",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "coinChange",
+        "cases": [
+          {
+            "args": [
+              [
+                1,
+                2,
+                5
+              ],
+              11
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                2
+              ],
+              3
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                1,
+                3,
+                4
+              ],
+              6
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              [
+                1,
+                5,
+                11
+              ],
+              15
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                1
+              ],
+              0
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "coin_js",
+      "name": "coinChange (JavaScript)",
+      "system": "Write only a JavaScript function named coinChange(coins, amount). No markdown, no explanation, no test code.",
+      "prompt": "Given coin denominations and a target amount, return the minimum number of coins needed to make the amount, or -1 if impossible. You may use each denomination unlimited times. Greedy does NOT always work (e.g. coins [1,3,4], amount 6 needs 2 coins, not 3).",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "coinChange",
+        "cases": [
+          {
+            "args": [
+              [
+                1,
+                2,
+                5
+              ],
+              11
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                2
+              ],
+              3
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                1,
+                3,
+                4
+              ],
+              6
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              [
+                1,
+                5,
+                11
+              ],
+              15
+            ],
+            "returns": 3
+          },
+          {
+            "args": [
+              [
+                1
+              ],
+              0
+            ],
+            "returns": 0
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "lvp_py",
+      "name": "longestValidParentheses (Python)",
+      "system": "Write only a Python function named longestValidParentheses(s). No markdown, no explanation, no test code.",
+      "prompt": "Given a string of only ( and ) characters, return the length of the longest valid (well-formed) parentheses substring. Example: \")()())\" -> 4.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "longestValidParentheses",
+        "cases": [
+          {
+            "args": [
+              "(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              ")()())"
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              ""
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "()(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              "()(())"
+            ],
+            "returns": 6
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "python"
+      }
+    },
+    {
+      "id": "lvp_java",
+      "name": "longestValidParentheses (Java)",
+      "system": "Write only a Java class named Solution containing: public static int longestValidParentheses(String s). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Given a string of only ( and ) characters, return the length of the longest valid (well-formed) parentheses substring. Example: \")()())\" -> 4.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "longestValidParentheses",
+        "cases": [
+          {
+            "args": [
+              "(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              ")()())"
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              ""
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "()(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              "()(())"
+            ],
+            "returns": 6
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "java"
+      }
+    },
+    {
+      "id": "lvp_js",
+      "name": "longestValidParentheses (JavaScript)",
+      "system": "Write only a JavaScript function named longestValidParentheses(s). No markdown, no explanation, no test code.",
+      "prompt": "Given a string of only ( and ) characters, return the length of the longest valid (well-formed) parentheses substring. Example: \")()())\" -> 4.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "longestValidParentheses",
+        "cases": [
+          {
+            "args": [
+              "(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              ")()())"
+            ],
+            "returns": 4
+          },
+          {
+            "args": [
+              ""
+            ],
+            "returns": 0
+          },
+          {
+            "args": [
+              "()(()"
+            ],
+            "returns": 2
+          },
+          {
+            "args": [
+              "()(())"
+            ],
+            "returns": 6
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_hard",
+        "difficulty": "hard",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "kadane_py",
+      "name": "maxSubArray (Python)",
+      "system": "Write only a Python function named maxSubArray(nums). No markdown, no explanation, no test code.",
+      "prompt": "Given an integer array, return the largest sum of any contiguous subarray (at least one element). Example: [-2,1,-3,4,-1,2,1,-5,4] -> 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxSubArray",
+        "cases": [
+          {
+            "args": [
+              [
+                -2,
+                1,
+                -3,
+                4,
+                -1,
+                2,
+                1,
+                -5,
+                4
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                1
+              ]
+            ],
+            "returns": 1
+          },
+          {
+            "args": [
+              [
+                -1,
+                -2,
+                -3
+              ]
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                -1,
+                7,
+                8
+              ]
+            ],
+            "returns": 23
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_medium",
+        "difficulty": "medium",
+        "language": "python"
+      }
+    },
+    {
+      "id": "kadane_java",
+      "name": "maxSubArray (Java)",
+      "system": "Write only a Java class named Solution containing: public static int maxSubArray(int[] nums). No package statement, no markdown, no explanation, no main method.",
+      "prompt": "Given an integer array, return the largest sum of any contiguous subarray (at least one element). Example: [-2,1,-3,4,-1,2,1,-5,4] -> 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxSubArray",
+        "cases": [
+          {
+            "args": [
+              [
+                -2,
+                1,
+                -3,
+                4,
+                -1,
+                2,
+                1,
+                -5,
+                4
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                1
+              ]
+            ],
+            "returns": 1
+          },
+          {
+            "args": [
+              [
+                -1,
+                -2,
+                -3
+              ]
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                -1,
+                7,
+                8
+              ]
+            ],
+            "returns": 23
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_medium",
+        "difficulty": "medium",
+        "language": "java"
+      }
+    },
+    {
+      "id": "kadane_js",
+      "name": "maxSubArray (JavaScript)",
+      "system": "Write only a JavaScript function named maxSubArray(nums). No markdown, no explanation, no test code.",
+      "prompt": "Given an integer array, return the largest sum of any contiguous subarray (at least one element). Example: [-2,1,-3,4,-1,2,1,-5,4] -> 6.",
+      "scoring": "code_exec",
+      "expected": {
+        "entry": "maxSubArray",
+        "cases": [
+          {
+            "args": [
+              [
+                -2,
+                1,
+                -3,
+                4,
+                -1,
+                2,
+                1,
+                -5,
+                4
+              ]
+            ],
+            "returns": 6
+          },
+          {
+            "args": [
+              [
+                1
+              ]
+            ],
+            "returns": 1
+          },
+          {
+            "args": [
+              [
+                -1,
+                -2,
+                -3
+              ]
+            ],
+            "returns": -1
+          },
+          {
+            "args": [
+              [
+                5,
+                4,
+                -1,
+                7,
+                8
+              ]
+            ],
+            "returns": 23
+          }
+        ]
+      },
+      "metadata": {
+        "category": "algo_medium",
+        "difficulty": "medium",
+        "language": "javascript"
+      }
+    },
+    {
+      "id": "cwe_sqli_php",
+      "name": "CWE-89 SQL injection (PHP)",
+      "system": "You are a security auditor. Name the specific vulnerability class in this code.",
+      "prompt": "What is the vulnerability?\n\n$id = $_GET[\"id\"];\n$result = mysqli_query($conn, \"SELECT * FROM users WHERE id = \" . $id);",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "injection"
+        ],
+        "not_contains": [
+          "no vulnerability",
+          "is secure",
+          "is safe"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "id": "cwe_cmdi_py",
+      "name": "CWE-78 command injection (Python)",
+      "system": "You are a security auditor. Name the specific vulnerability class in this code.",
+      "prompt": "What is the vulnerability?\n\nimport os\nfilename = request.args.get(\"file\")\nos.system(\"cat \" + filename)",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "command injection"
+        ],
+        "not_contains": [
+          "no vulnerability",
+          "is secure",
+          "is safe"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "id": "cwe_xxe_java",
+      "name": "CWE-611 XXE (Java)",
+      "system": "You are a security auditor. Name the specific vulnerability class (acronym ok).",
+      "prompt": "What is the vulnerability?\n\nDocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();\n// external entity processing left enabled\nDocument doc = dbf.newDocumentBuilder().parse(userSuppliedXml);",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "xxe"
+        ],
+        "not_contains": [
+          "no vulnerability",
+          "is secure",
+          "is safe"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "id": "cwe_deser_py",
+      "name": "CWE-502 insecure deserialization (Python)",
+      "system": "You are a security auditor. Name the specific vulnerability class in this code.",
+      "prompt": "What is the vulnerability?\n\nimport pickle\ndata = request.get_data()\nobj = pickle.loads(data)  # data from untrusted client",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "deserial"
+        ],
+        "not_contains": [
+          "no vulnerability",
+          "is secure",
+          "is safe"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "hard"
+      }
+    },
+    {
+      "id": "cwe_path_node",
+      "name": "CWE-22 path traversal (Node)",
+      "system": "You are a security auditor. Name the specific vulnerability class in this code.",
+      "prompt": "What is the vulnerability?\n\nconst file = req.query.name;\nfs.readFile(\"/var/data/\" + file, (e, d) => res.send(d));",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "traversal"
+        ],
+        "not_contains": [
+          "no vulnerability",
+          "is secure",
+          "is safe"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "medium"
+      }
+    },
+    {
+      "id": "cwe_weakhash",
+      "name": "CWE-327 weak password hash (Python)",
+      "system": "You are a security auditor. Identify what is cryptographically wrong here.",
+      "prompt": "What is wrong with this password hashing?\n\nimport hashlib\nhashed = hashlib.md5(password.encode()).hexdigest()",
+      "scoring": "contains",
+      "expected": {
+        "contains": [
+          "md5"
+        ],
+        "not_contains": [
+          "no problem",
+          "is fine"
+        ]
+      },
+      "metadata": {
+        "category": "security_cwe",
+        "difficulty": "medium"
+      }
+    }
+  ]
+}

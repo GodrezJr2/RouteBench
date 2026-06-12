@@ -125,7 +125,11 @@ function backoffMs(attempt, baseMs, retryAfterMs) {
   return exp + Math.floor(Math.random() * baseMs); // full jitter on the base
 }
 
-export function createOpenAICompatibleClient({
+// Shared low-level caller: one HTTP attempt + retry wrapper around a raw
+// `messages` array. Both the single-turn benchmark client and the multi-turn
+// agentic client build on this so retry/temperature/parse logic stays in one
+// place.
+function buildMessagesCaller({
   baseUrl,
   apiKey,
   timeoutMs,
@@ -137,18 +141,12 @@ export function createOpenAICompatibleClient({
   const sleep = sleepImpl || ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
   // One HTTP attempt: returns { output, usage } or throws a classified error.
-  async function attemptOnce({ model, testCase }) {
+  async function attemptOnce({ model, messages }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const sendRequest = (includeTemperature) => {
-      const payload = {
-        model,
-        messages: [
-          { role: 'system', content: testCase.system },
-          { role: 'user', content: testCase.prompt },
-        ],
-      };
+      const payload = { model, messages };
       if (includeTemperature) payload.temperature = 0;
       return fetchImpl(joinUrl(baseUrl, '/chat/completions'), {
         method: 'POST',
@@ -210,11 +208,11 @@ export function createOpenAICompatibleClient({
     }
   }
 
-  return async function callOpenAICompatible({ model, testCase }) {
+  return async function callWithRetry({ model, messages }) {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries + 1; attempt += 1) {
       try {
-        return await attemptOnce({ model, testCase });
+        return await attemptOnce({ model, messages });
       } catch (error) {
         lastError = error;
         if (!isTransient(error) || attempt > maxRetries) throw error;
@@ -222,5 +220,26 @@ export function createOpenAICompatibleClient({
       }
     }
     throw lastError;
+  };
+}
+
+export function createOpenAICompatibleClient(config) {
+  const call = buildMessagesCaller(config);
+  return function callOpenAICompatible({ model, testCase }) {
+    const messages = [
+      { role: 'system', content: testCase.system },
+      { role: 'user', content: testCase.prompt },
+    ];
+    return call({ model, messages });
+  };
+}
+
+// Multi-turn client for the agentic harness: takes a raw `messages` array
+// (full conversation history) instead of a single test case. Same retry,
+// temperature, and SSE/JSON parsing behavior as the single-turn client.
+export function createChatClient(config) {
+  const call = buildMessagesCaller(config);
+  return function callChat({ model, messages }) {
+    return call({ model, messages });
   };
 }

@@ -20,6 +20,7 @@ export function loadConfigFromFile(json) {
     timeoutMs: Number(json.timeout_ms || 0),
     concurrency: Number(json.concurrency || 0),
     modelCosts: json.model_costs ?? {},
+    routingPreference: typeof json.routing_preference === 'string' ? json.routing_preference : '',
   };
 }
 

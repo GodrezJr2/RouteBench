@@ -67,6 +67,11 @@ const result = {
       output: '',
       error_message: 'model bad-model failed case case_1: provider returned 422',
       error_type: 'provider_http_error',
+      failure_diagnosis: {
+        type: 'provider_error',
+        summary: 'Provider request failed before scoring: provider returned 422',
+        evidence: { error_type: 'provider_http_error', error_status: null },
+      },
     },
   ],
 };
@@ -79,5 +84,7 @@ test('renders markdown report with recommendation ranked models and failures', (
   assert.match(markdown, /bad-model/);
   assert.match(markdown, /Failed Cases/);
   assert.match(markdown, /provider_http_error/);
+  assert.match(markdown, /Failure Diagnosis/);
+  assert.match(markdown, /Provider request failed before scoring/);
   assert.match(markdown, /Category Breakdown/);
 });

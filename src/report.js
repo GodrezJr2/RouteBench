@@ -60,6 +60,24 @@ export function renderMarkdownReport(result) {
   });
   lines.push('');
 
+  // Token usage + prompt-cache hits. Only rendered when the provider reported
+  // usage. A high cache-hit rate = cheaper repeat/long-session serving.
+  const tokenModels = result.recommendation.ranked_models.filter((m) => m.total_prompt_tokens != null);
+  if (tokenModels.length > 0) {
+    lines.push('## Token Usage & Cache', '');
+    lines.push('Prompt-cache hits make repeated context cheaper. High cache-hit rate = cost-efficient on long/repetitive sessions.', '');
+    lines.push('| Model | Prompt | Cached | Cache Hit | Completion | Total |');
+    lines.push('|---|---:|---:|---:|---:|---:|');
+    for (const m of tokenModels) {
+      const total = (m.total_prompt_tokens ?? 0) + (m.total_completion_tokens ?? 0);
+      const hit = m.cache_hit_rate != null ? pct(m.cache_hit_rate) : '-';
+      lines.push(
+        `| ${escapeCell(m.model)} | ${m.total_prompt_tokens} | ${m.total_cached_tokens ?? 0} | ${hit} | ${m.total_completion_tokens} | ${total} |`,
+      );
+    }
+    lines.push('');
+  }
+
   const diagnosis = result.diagnosis ?? [];
   if (diagnosis.length > 0) {
     lines.push('## Diagnosis', '');
@@ -109,16 +127,46 @@ export function renderMarkdownReport(result) {
     lines.push('');
   }
 
+  const languageAggregate = result.language_aggregate ?? {};
+  const languages = Object.keys(languageAggregate).sort();
+  if (languages.length > 0) {
+    // Pivot: one row per model, one column per language, so a model's uneven
+    // per-language strength ("aces Python, stumbles on Java") is visible at a glance.
+    const modelSet = new Set();
+    for (const lang of languages) {
+      for (const m of Object.keys(languageAggregate[lang].models)) modelSet.add(m);
+    }
+    const scoreFor = (model, lang) => languageAggregate[lang].models[model]?.avg_score ?? null;
+    const meanOf = (model) => {
+      const vals = languages.map((l) => scoreFor(model, l)).filter((v) => v != null);
+      return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+    };
+    const models = [...modelSet].sort((a, b) => meanOf(b) - meanOf(a) || a.localeCompare(b));
+
+    lines.push('## Per-Language Breakdown', '');
+    lines.push('Strength by language — a model can ace one language and stumble on another. Cells are average scores; blank = no cases for that language.', '');
+    lines.push(`| Model | ${languages.map(escapeCell).join(' | ')} |`);
+    lines.push(`|---|${languages.map(() => '---:').join('|')}|`);
+    for (const model of models) {
+      const cells = languages.map((lang) => {
+        const v = scoreFor(model, lang);
+        return v == null ? '–' : String(v);
+      });
+      lines.push(`| ${escapeCell(model)} | ${cells.join(' | ')} |`);
+    }
+    lines.push('');
+  }
+
   const failed = result.results.filter((row) => row.status !== 'completed' || row.passed === false);
   lines.push('## Failed Cases', '');
   if (failed.length === 0) {
     lines.push('No failed cases.', '');
   } else {
-    lines.push('| Model | Case | Category | Status | Score | Latency | Error Type | Message | Output Snippet |');
-    lines.push('|---|---|---|---|---:|---:|---|---|---|');
+    lines.push('| Model | Case | Category | Status | Score | Latency | Error Type | Message | Failure Diagnosis | Output Snippet |');
+    lines.push('|---|---|---|---|---:|---:|---|---|---|---|');
     for (const row of failed) {
       lines.push(
-        `| ${escapeCell(row.model)} | ${escapeCell(row.test_case_id)} | ${escapeCell(row.category)} | ${escapeCell(row.status)} | ${row.score} | ${row.latency_ms}ms | ${escapeCell(row.error_type ?? '')} | ${escapeCell(row.error_message ?? row.score_reason ?? '')} | ${escapeCell(snippet(row.output))} |`,
+        `| ${escapeCell(row.model)} | ${escapeCell(row.test_case_id)} | ${escapeCell(row.category)} | ${escapeCell(row.status)} | ${row.score} | ${row.latency_ms}ms | ${escapeCell(row.error_type ?? '')} | ${escapeCell(row.error_message ?? row.score_reason ?? '')} | ${escapeCell(row.failure_diagnosis?.summary ?? '')} | ${escapeCell(snippet(row.output))} |`,
       );
     }
     lines.push('');
