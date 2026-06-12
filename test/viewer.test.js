@@ -264,7 +264,9 @@ test('POST /api/chat-compare requires models and a prompt', async () => {
     const r = await fetch(`http://127.0.0.1:${port}/api/chat-compare`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models: [], prompt: '' }),
+      // supply base_url so the handler reaches model/prompt validation
+      // instead of the earlier "no endpoint" gate (which depends on local config)
+      body: JSON.stringify({ base_url: 'http://127.0.0.1:1/v1', models: [], prompt: '' }),
     });
     assert.equal(r.status, 400);
     const json = await r.json();
